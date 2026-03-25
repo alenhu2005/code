@@ -12,6 +12,8 @@ import * as actions from './actions.js';
 Object.assign(window, {
   navigate,
   cancelDialog,
+  openBackupMenu: actions.openBackupMenu,
+  closeBackupMenu: actions.closeBackupMenu,
   toggleTheme,
   toggleHomeHistory,
   setAnalysisPeriod,
@@ -23,6 +25,7 @@ Object.assign(window, {
   setHomeSplitMode: actions.setHomeSplitMode,
   submitDailyRecord: actions.submitDailyRecord,
   exportBackupCSV: actions.exportBackupCSV,
+  exportTechnicalCSV: actions.exportTechnicalCSV,
   copyBackupText: actions.copyBackupText,
   showCreateTripForm: actions.showCreateTripForm,
   addNewTripMember: actions.addNewTripMember,

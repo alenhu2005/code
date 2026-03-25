@@ -51,6 +51,17 @@
     .header h1 { font-size: 15px; font-weight: 600; flex: 1; }
     .header-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 
+    .header-tools {
+      display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+    }
+    .header-icon-btn {
+      background: none; border: none; cursor: pointer; padding: 6px;
+      color: var(--text-muted); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .header-icon-btn:hover { background: var(--border); }
+    .header-icon-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+
     /* ── Main ── */
     .main { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -110,6 +121,31 @@
     }
     .form-input:focus { border-color: var(--primary); }
     .form-input::placeholder { color: var(--text-muted); }
+
+    /* Safari / iOS：date 會多出隱形 margin、內建 padding，並強制文字置中 */
+    input[type="date"].form-input,
+    input[type="date"] {
+      -webkit-appearance: none;
+      appearance: none;
+      margin: 0;
+      text-align: start;
+      min-height: 36px;
+      line-height: 1.25;
+    }
+    input[type="date"].form-input::-webkit-date-and-time-value {
+      text-align: start;
+    }
+    input[type="date"].form-input::-webkit-datetime-edit {
+      padding: 0;
+      margin: 0;
+    }
+    input[type="date"].form-input::-webkit-datetime-edit-fields-wrapper {
+      padding: 0;
+    }
+    input[type="date"].form-input::-webkit-datetime-edit-text {
+      padding: 0 1px;
+    }
+
     .form-select {
       width: 100%; height: 36px; padding: 0 28px 0 10px;
       border: 1px solid var(--border); border-radius: 8px;
@@ -395,11 +431,11 @@
     #theme-toggle svg { width: 18px; height: 18px; fill: currentColor; display: block; }
 
     /* ── Edit dialog ── */
-    #edit-overlay {
+    #edit-overlay, #backup-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.4);
       z-index: 200; display: none; align-items: flex-end; justify-content: center;
     }
-    #edit-overlay.open { display: flex; }
+    #edit-overlay.open, #backup-overlay.open { display: flex; }
     .edit-dialog {
       background: var(--surface); border-radius: 16px 16px 0 0;
       padding: 24px 20px; width: 100%; max-width: 480px;
@@ -441,8 +477,15 @@
     html.dark .btn-toggle.active { background: var(--primary); color: white; border-color: transparent; }
     html.dark .balance-content { background: var(--surface); }
 
-    /* Backup */
-    .backup-actions { display: flex; flex-direction: column; gap: 10px; }
+    /* Backup sheet */
+    .backup-dialog .backup-hint {
+      font-size: 12px; color: var(--text-muted); line-height: 1.5;
+      margin: 0 0 14px 0;
+    }
+    .backup-sheet-actions { display: flex; flex-direction: column; gap: 10px; }
+    .backup-tech-btn { font-size: 12px; }
+    .backup-close-btn { margin-top: 4px; }
+    html.dark .btn-ghost.backup-tech-btn:hover { background: var(--bg-tertiary); }
 
     /* Trip: stats & day groups */
     .trip-stats-body { padding-top: 0; }

@@ -561,5 +561,13 @@ export async function submitEditRecord() {
   }
 }
 
-export { exportBackupCSV, copyBackupText } from './backup.js';
+export { exportBackupCSV, copyBackupText, exportTechnicalCSV } from './backup.js';
 export { updateMultiPayTotal, updatePerPerson };
+
+export function openBackupMenu() {
+  document.getElementById('backup-overlay')?.classList.add('open');
+}
+
+export function closeBackupMenu() {
+  document.getElementById('backup-overlay')?.classList.remove('open');
+}

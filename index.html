@@ -76,6 +76,20 @@
     </div>
   </div>
 
+  <!-- Backup sheet -->
+  <div id="backup-overlay" onclick="if(event.target===this)closeBackupMenu()">
+    <div class="edit-dialog backup-dialog" onclick="event.stopPropagation()">
+      <h3>備份與匯出</h3>
+      <p class="backup-hint">可讀版含中文欄與摘要；還原試算表或與後端對接請用原始格式。</p>
+      <div class="backup-sheet-actions">
+        <button type="button" class="btn btn-primary btn-full" onclick="exportBackupCSV(); closeBackupMenu()">下載可讀版 CSV</button>
+        <button type="button" class="btn btn-outline btn-full" onclick="copyBackupText().then(() => closeBackupMenu())">複製文字備份</button>
+        <button type="button" class="btn btn-ghost btn-full backup-tech-btn" onclick="exportTechnicalCSV(); closeBackupMenu()">下載原始格式 CSV（技術用）</button>
+      </div>
+      <button type="button" class="btn btn-outline btn-full backup-close-btn" onclick="closeBackupMenu()">關閉</button>
+    </div>
+  </div>
+
   <!-- ═══════════════ PAGE: 日常 ═══════════════ -->
   <div id="page-home" class="page active">
     <header class="header">
@@ -84,9 +98,14 @@
       </div>
       <h1>記帳本</h1>
       <div class="header-meta" id="home-count">0 筆</div>
-      <button id="theme-toggle" onclick="toggleTheme()" title="深色模式">
-        <svg id="theme-icon" viewBox="0 0 24 24"></svg>
-      </button>
+      <div class="header-tools">
+        <button type="button" id="backup-open-btn" class="header-icon-btn" onclick="openBackupMenu()" title="備份與匯出" aria-label="備份與匯出">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/></svg>
+        </button>
+        <button type="button" id="theme-toggle" onclick="toggleTheme()" title="深色模式">
+          <svg id="theme-icon" viewBox="0 0 24 24"></svg>
+        </button>
+      </div>
     </header>
     <div class="main">
 
@@ -173,20 +192,6 @@
           </div>
         </div>
         <div class="card" id="home-records"></div>
-      </div>
-
-      <!-- Backup -->
-      <div class="card" id="backup-card">
-        <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/></svg>
-            備份與匯出
-          </div>
-        </div>
-        <div class="card-body backup-actions">
-          <button type="button" class="btn btn-outline btn-full" onclick="exportBackupCSV()">下載 CSV</button>
-          <button type="button" class="btn btn-outline btn-full" onclick="copyBackupText()">複製文字備份</button>
-        </div>
       </div>
     </div>
   </div>
