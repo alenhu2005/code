@@ -17,7 +17,6 @@ import {
   readLastRouteFromLocalStorage,
   applyAnalysisPeriodFromSnapshot,
 } from './session-ui.js';
-import { initPullToRefresh } from './pull-refresh.js';
 
 function showUpdateBadge() {
   const el = document.getElementById('update-badge');
@@ -113,7 +112,7 @@ function tryRestoreSessionFromStorage() {
  */
 function syncOnNavigate() {
   clearTimeout(appState._pollTimer);
-  pollForChanges({ quiet: true });
+  setTimeout(() => pollForChanges({ quiet: true }), 300);
 }
 
 function initBottomNavTouchNavigate() {
@@ -173,16 +172,25 @@ export async function initApp() {
   window.addEventListener('pagehide', () => persistSessionSnapshot());
 
   const appEl = document.getElementById('app');
+  let focusoutTimer = 0;
   if (appEl) {
     appEl.addEventListener(
       'focusout',
       e => {
         if (!isSyncPauseTarget(e.target)) return;
-        requestAnimationFrame(() => {
+        clearTimeout(focusoutTimer);
+        focusoutTimer = setTimeout(() => {
           if (syncPausedForUserInput()) return;
           clearTimeout(appState._pollTimer);
-          pollForChanges();
-        });
+          pollForChanges({ quiet: true });
+        }, 1500);
+      },
+      true,
+    );
+    appEl.addEventListener(
+      'focusin',
+      e => {
+        if (isSyncPauseTarget(e.target)) clearTimeout(focusoutTimer);
       },
       true,
     );
@@ -202,5 +210,4 @@ export async function initApp() {
   });
 
   initBottomNavTouchNavigate();
-  initPullToRefresh();
 }

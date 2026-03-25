@@ -8,6 +8,7 @@ import { computeBalance, computeSettlements } from './finance.js';
 import { showConfirm } from './dialog.js';
 import { guessCategoryFromItem } from './category.js';
 import { navigate } from './navigation.js';
+import { pauseSyncBriefly } from './sync-pause.js';
 import { renderHome, cancelHomeBalanceAnim } from './views-home.js';
 import { renderTrips } from './views-trips.js';
 import {
@@ -306,6 +307,7 @@ export async function submitDailyRecord() {
   };
   snapshotPendingHomeBalanceFromAbs();
   appState.allRows.push(row);
+  pauseSyncBriefly(5000);
   renderHome();
 
   try {
@@ -457,6 +459,7 @@ export async function createTrip() {
   };
   appState.allRows.push(row);
   hideCreateTripForm();
+  pauseSyncBriefly(5000);
   navigate('tripDetail', row.id);
 
   try {
@@ -733,6 +736,7 @@ export async function submitTripExpense() {
     ...extraFields,
   };
   appState.allRows.push(row);
+  pauseSyncBriefly(5000);
   renderTripDetail();
 
   try {
