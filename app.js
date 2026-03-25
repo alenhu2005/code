@@ -165,46 +165,72 @@ function saveCache() {
 }
 
 async function loadData() {
-  const localDailyRows = allRows.filter(isDailyRow);
-  const localTripRows  = allRows.filter(isTripRow);
+  // Snapshot before fetch — used only to enrich sparse rows from old GAS payloads (same id).
+  const localSnapshot = allRows.slice();
   try {
     const res = await fetch(API_URL + '?t=' + Date.now(), { redirect: 'follow', signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.json();
-    const fresh = (Array.isArray(raw) ? raw : [])
+    if (!Array.isArray(raw)) {
+      console.warn('GAS: expected JSON array, sync skipped');
+      return;
+    }
+
+    let fresh = raw
       .filter(r => r && r.type)
       .map(normalizeRow);
 
-    // GAS returned no rows — keep local cache intact rather than wiping it
-    if (fresh.length === 0) return;
-
-    const freshDaily = fresh.filter(isDailyRow);
-    const freshTrips = fresh.filter(isTripRow);
-
-    // GAS responded with data — use it as source of truth.
-    // Only fall back to local cache if GAS returned absolutely nothing.
-    const gasHasData = fresh.length > 0;
-    const dailyRows = freshDaily.length > 0 ? freshDaily
-                    : (gasHasData ? [] : localDailyRows);
-
     const localById = {};
-    localTripRows.forEach(r => { if (r.id) localById[r.id] = r; });
+    localSnapshot.forEach(r => { if (r.id) localById[r.id] = r; });
+    fresh = fresh.map(r => {
+      const local = localById[r.id];
+      if (!local) return r;
+      if (r.type === 'trip' && !r.name && local.name) {
+        return { ...r, name: local.name, members: r.members || local.members };
+      }
+      if (r.type === 'tripExpense' && !r.tripId && local.tripId) {
+        return { ...r, tripId: local.tripId };
+      }
+      return r;
+    });
 
-    const tripRows = freshTrips.length > 0
-      ? freshTrips.map(r => {
-          const local = localById[r.id];
-          if (!local) return r;
-          if (r.type === 'trip'        && !r.name)   return local;
-          if (r.type === 'tripExpense' && !r.tripId)  return local;
-          return r;
-        })
-      : (gasHasData ? [] : localTripRows);
-
-    allRows = [...dailyRows, ...tripRows];
+    // Successful sync: GAS list is authoritative (including empty → clear local).
+    allRows = fresh;
     saveCache();
   } catch (e) {
     console.warn('Load error:', e.message || e);
   }
+}
+
+const POST_TIMEOUT_MS = 45000;
+
+function getPostAbortSignal() {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(POST_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), POST_TIMEOUT_MS);
+  return c.signal;
+}
+
+/** User-facing message for failed POST (timeout / network / HTTP). */
+function formatPostError(err) {
+  if (!err) return '同步失敗，請稍後再試';
+  const name = err.name || '';
+  if (name === 'AbortError' || name === 'TimeoutError') {
+    return '連線逾時，請檢查網路後再試';
+  }
+  const msg = String(err.message || '');
+  if (msg.startsWith('HTTP_')) {
+    const code = msg.slice(5);
+    if (code === '429') return '請求過於頻繁，請稍後再試';
+    if (code.startsWith('5')) return '伺服器暫時無法使用（' + code + '），請稍後再試';
+    return '伺服器回應錯誤（' + code + '），請稍後再試';
+  }
+  if (name === 'TypeError' || /Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+    return '無法連線，請檢查網路後再試';
+  }
+  return '同步失敗，請稍後再試';
 }
 
 async function postRow(data) {
@@ -214,9 +240,90 @@ async function postRow(data) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(data),
     redirect: 'follow',
+    signal: getPostAbortSignal(),
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) throw new Error('HTTP_' + res.status);
   saveCache(); // keep local cache in sync after every confirmed write
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Backup / export (allRows)
+// ──────────────────────────────────────────────────────────────────────────────
+function csvEscape(s) {
+  const t = String(s ?? '');
+  if (/[",\n\r]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+  return t;
+}
+
+function allRowsToCSV() {
+  const headers = [
+    'type', 'action', 'id', 'date', 'amount', 'item', 'paidBy', 'splitMode', 'note',
+    'tripId', 'name', 'members', 'paidHu', 'paidZhan', 'category', 'splitAmong', 'payers_json', 'memberName',
+  ];
+  const lines = [headers.join(',')];
+  for (const r of allRows) {
+    let payersJson = '';
+    if (r.payers != null) {
+      payersJson = typeof r.payers === 'string' ? r.payers : JSON.stringify(r.payers);
+    }
+    const splitAmong = typeof r.splitAmong === 'string' ? r.splitAmong : JSON.stringify(r.splitAmong || []);
+    const members = typeof r.members === 'string' ? r.members : JSON.stringify(r.members || []);
+    const vals = [
+      r.type, r.action, r.id, r.date ?? '', r.amount ?? '', r.item ?? '', r.paidBy ?? '', r.splitMode ?? '',
+      r.note ?? '', r.tripId ?? '', r.name ?? '', members, r.paidHu ?? '', r.paidZhan ?? '',
+      r.category ?? '', splitAmong, payersJson, r.memberName ?? '',
+    ];
+    lines.push(vals.map(csvEscape).join(','));
+  }
+  return '\uFEFF' + lines.join('\n');
+}
+
+function rowToTextBlock(r) {
+  if (!r) return '';
+  const lines = [`── ${r.type} / ${r.action} ── id: ${r.id}`];
+  const keys = ['date', 'amount', 'item', 'paidBy', 'splitMode', 'note', 'tripId', 'name', 'paidHu', 'paidZhan', 'category', 'memberName'];
+  for (const k of keys) {
+    if (r[k] != null && r[k] !== '') lines.push(`  ${k}: ${r[k]}`);
+  }
+  if (r.members) lines.push(`  members: ${typeof r.members === 'string' ? r.members : JSON.stringify(r.members)}`);
+  if (r.splitAmong) lines.push(`  splitAmong: ${typeof r.splitAmong === 'string' ? r.splitAmong : JSON.stringify(r.splitAmong)}`);
+  if (r.payers) lines.push(`  payers: ${typeof r.payers === 'string' ? r.payers : JSON.stringify(r.payers)}`);
+  return lines.join('\n');
+}
+
+function allRowsToBackupText() {
+  const head = [
+    '記帳本資料備份',
+    '匯出時間：' + new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+    '事件筆數：' + allRows.length,
+    '',
+  ];
+  return head.join('\n') + allRows.map(rowToTextBlock).join('\n\n');
+}
+
+function downloadTextFile(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function exportBackupCSV() {
+  const d = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+  downloadTextFile(`記帳備份_${d}.csv`, allRowsToCSV(), 'text/csv;charset=utf-8');
+  toast('已下載 CSV');
+}
+
+async function copyBackupText() {
+  const text = allRowsToBackupText();
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已複製到剪貼簿');
+  } catch {
+    toast('無法複製，請改用匯出 CSV');
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -352,6 +459,73 @@ function computeSettlements(members, expenses) {
     if (pos[j].a < 0.01) j++;
   }
   return out;
+}
+
+/** 每人「先付」金額加總（出遊；不含已撤回） */
+function computePayerTotals(expenses) {
+  const totals = {};
+  for (const e of expenses) {
+    if (e._voided) continue;
+    if (e.payers && Array.isArray(e.payers)) {
+      for (const p of e.payers) {
+        const n = p.name;
+        if (!n) continue;
+        totals[n] = (totals[n] || 0) + (parseFloat(p.amount) || 0);
+      }
+    } else if (e.paidBy && e.paidBy !== '多人') {
+      const n = e.paidBy;
+      totals[n] = (totals[n] || 0) + (parseFloat(e.amount) || 0);
+    }
+  }
+  return totals;
+}
+
+function renderPayerStatsCard(totals) {
+  const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    return `<div class="card-body payer-stats-body"><div class="payer-stats-empty">尚無付款紀錄</div></div>`;
+  }
+  return `<div class="card-body payer-stats-body">
+    <div class="payer-stats-list">
+      ${entries.map(([name, amt], i) => `<div class="payer-stats-row">
+        <span class="payer-stats-rank">${i + 1}</span>
+        <span class="payer-stats-name">${esc(name)}</span>
+        <span class="payer-stats-amt">先付 NT$${Math.round(amt).toLocaleString()}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function buildTripSettlementSummaryText(trip, expenses) {
+  const nonVoid = expenses.filter(e => !e._voided);
+  const total = nonVoid.reduce((s, e) => s + e.amount, 0);
+  const payers = computePayerTotals(nonVoid);
+  const payerLines = Object.entries(payers).sort((a, b) => b[1] - a[1]);
+  const settlements = computeSettlements(trip.members, nonVoid);
+  let t = `【${trip.name}】出遊結算懶人包\n`;
+  t += `成員：${trip.members.join('、')}\n`;
+  t += `消費：${nonVoid.length} 筆，總計 NT$${Math.round(total)}\n\n`;
+  t += `── 誰先付最多 ──\n`;
+  if (payerLines.length === 0) t += '（無）\n';
+  else payerLines.forEach(([name, amt], i) => { t += `${i + 1}. ${name}  NT$${Math.round(amt)}\n`; });
+  t += `\n── 建議轉帳（最少次數）──\n`;
+  if (settlements.length === 0) t += '帳已平衡，不需轉帳。\n';
+  else settlements.forEach(s => { t += `${s.from} → ${s.to}  NT$${Math.round(s.amount)}\n`; });
+  t += `\n（由記帳本自動產生）`;
+  return t;
+}
+
+async function copyTripSettlementSummary(tripId) {
+  const trip = getTripById(tripId);
+  if (!trip) return;
+  const expenses = getTripExpenses(tripId);
+  const text = buildTripSettlementSummaryText(trip, expenses);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('結算摘要已複製');
+  } catch {
+    toast('無法複製，請檢查瀏覽器權限');
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -807,16 +981,24 @@ function renderTripDetail() {
   // Settlement
   renderSettlement(trip.members, expenses);
 
+  const payerEl = document.getElementById('trip-payer-stats');
+  if (payerEl) {
+    payerEl.innerHTML = renderPayerStatsCard(computePayerTotals(expenses));
+  }
+
   // Archive bar + form visibility
   const archiveBar = document.getElementById('trip-archive-bar');
   const addCard = document.getElementById('add-expense-card');
   if (trip._closed) {
-    archiveBar.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:0;gap:12px">
-      <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:13px">
+    archiveBar.innerHTML = `<div class="trip-closed-bar">
+      <div class="trip-closed-bar-note">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;flex-shrink:0"><path d="M20 6h-2.18c.07-.44.18-.88.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .12.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .12-.11.56-.18 1h-3.64C12.11 5.56 12 5.12 12 5c0-1.1.9-2 2-2zm0 10l-4-4 1.41-1.41L14 10.17l4.59-4.58L20 7l-6 6z"/></svg>
         此行程已結束，僅供瀏覽
       </div>
-      <button class="btn btn-outline btn-sm" onclick='reopenTripAction(${jq(trip.id)})'>重新開啟</button>
+      <div class="trip-closed-bar-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick='copyTripSettlementSummary(${jq(trip.id)})'>複製結算懶人包</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick='reopenTripAction(${jq(trip.id)})'>重新開啟</button>
+      </div>
     </div>`;
     addCard.style.display = 'none';
   } else {
@@ -829,12 +1011,12 @@ function renderTripDetail() {
     addCard.style.display = '';
   }
 
-  // Expense list
+  // Expense list（依日期分組）
   const expEl = document.getElementById('detail-expenses');
   if (expenses.length === 0) {
     expEl.innerHTML = emptyHTML('還沒有消費紀錄', '');
   } else {
-    expEl.innerHTML = expenses.map(e => tripExpenseHTML(e, trip.members.length)).join('');
+    expEl.innerHTML = buildTripExpensesByDayHTML(expenses, trip);
   }
 }
 
@@ -956,6 +1138,24 @@ function tripExpenseHTML(e, totalMembers) {
   </div>`;
 }
 
+function buildTripExpensesByDayHTML(expenses, trip) {
+  const byDay = {};
+  for (const e of expenses) {
+    const d = e.date || '（無日期）';
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(e);
+  }
+  const days = Object.keys(byDay).sort().reverse();
+  return days.map(d => `
+    <div class="trip-day-group">
+      <div class="trip-day-label">${esc(d)} · ${byDay[d].length} 筆</div>
+      <div class="trip-day-items">
+        ${byDay[d].map(e => tripExpenseHTML(e, trip.members.length)).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
 function emptyHTML(title, sub) {
   return `<div class="empty-state">
     <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></div>
@@ -1075,7 +1275,7 @@ async function recordSettlement() {
   const row = { type:'settlement', action:'add', id:uid(), date:todayStr(), amount, paidBy:debtor };
   allRows.push(row); renderHome();
   try { await postRow(row); toast('已記錄還款！'); }
-  catch { allRows.pop(); renderHome(); toast('記錄失敗，請再試一次'); }
+  catch (e) { allRows.pop(); renderHome(); toast(formatPostError(e)); }
 }
 
 async function submitDailyRecord() {
@@ -1108,8 +1308,8 @@ async function submitDailyRecord() {
   try {
     await postRow(row);
     toast('已記帳！');
-  } catch {
-    allRows.pop(); renderHome(); toast('記帳失敗，請再試一次');
+  } catch (e) {
+    allRows.pop(); renderHome(); toast(formatPostError(e));
   }
 
   document.getElementById('h-item').value = '';
@@ -1130,7 +1330,7 @@ async function voidDailyRecord(id) {
   const row = { type:'daily', action:'void', id };
   allRows.push(row); renderHome();
   try { await postRow(row); toast('已撤回'); }
-  catch { allRows.pop(); renderHome(); toast('撤回失敗'); }
+  catch (e) { allRows.pop(); renderHome(); toast(formatPostError(e)); }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1186,7 +1386,7 @@ async function createTrip() {
   navigate('tripDetail', row.id);
 
   try { await postRow(row); toast(`「${name}」行程已建立`); }
-  catch { allRows.pop(); toast('建立失敗，請再試一次'); }
+  catch (e) { allRows.pop(); toast(formatPostError(e)); }
 
   btn.disabled = false; btn.textContent = '建立行程';
 }
@@ -1199,7 +1399,7 @@ async function deleteTripAction(id) {
   const row = { type:'trip', action:'delete', id };
   allRows.push(row); renderTrips();
   try { await postRow(row); toast('行程已刪除'); }
-  catch { allRows.pop(); renderTrips(); toast('刪除失敗'); }
+  catch (e) { allRows.pop(); renderTrips(); toast(formatPostError(e)); }
 }
 
 async function closeTripAction(id) {
@@ -1210,7 +1410,7 @@ async function closeTripAction(id) {
   const row = { type:'trip', action:'close', id };
   allRows.push(row); renderTripDetail();
   try { await postRow(row); toast('行程已結束'); }
-  catch { allRows.pop(); renderTripDetail(); toast('操作失敗'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 }
 
 async function reopenTripAction(id) {
@@ -1219,7 +1419,7 @@ async function reopenTripAction(id) {
   const row = { type:'trip', action:'reopen', id };
   allRows.push(row); renderTripDetail();
   try { await postRow(row); toast(`「${trip.name}」已重新開啟`); }
-  catch { allRows.pop(); renderTripDetail(); toast('操作失敗'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1235,7 +1435,7 @@ async function addDetailMember() {
   const row = { type:'tripMember', action:'add', tripId:currentTripId, memberName:name };
   allRows.push(row); input.value = ''; renderTripDetail();
   try { await postRow(row); }
-  catch { allRows.pop(); renderTripDetail(); toast('新增失敗'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 }
 
 async function removeMemberAction(name) {
@@ -1248,7 +1448,7 @@ async function removeMemberAction(name) {
   detailSplitAmong = detailSplitAmong.filter(m => m !== name);
   renderTripDetail();
   try { await postRow(row); }
-  catch { allRows.pop(); renderTripDetail(); toast('移除失敗'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1289,7 +1489,7 @@ async function submitTripExpense() {
   allRows.push(row); renderTripDetail();
 
   try { await postRow(row); toast('已記帳！'); }
-  catch { allRows.pop(); renderTripDetail(); toast('記帳失敗，請再試一次'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 
   document.getElementById('d-item').value = '';
   document.getElementById('d-amount').value = '';
@@ -1308,7 +1508,7 @@ async function voidTripExpenseAction(id) {
   const row = { type:'tripExpense', action:'void', id };
   allRows.push(row); renderTripDetail();
   try { await postRow(row); toast('已撤回'); }
-  catch { allRows.pop(); renderTripDetail(); toast('撤回失敗'); }
+  catch (e) { allRows.pop(); renderTripDetail(); toast(formatPostError(e)); }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1421,7 +1621,7 @@ async function submitEditRecord() {
   allRows.push(row); doRender();
   closeEditRecord();
   try { await postRow(row); toast('已更新'); }
-  catch { allRows.pop(); doRender(); toast('更新失敗'); }
+  catch (e) { allRows.pop(); doRender(); toast(formatPostError(e)); }
 }
 
 function setSyncing(on) {
