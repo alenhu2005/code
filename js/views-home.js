@@ -270,7 +270,7 @@ function dailyRecordHTML(r, runBal) {
     </div>`;
   }
 
-  const label = r.splitMode === '均分' ? '各付一半' : r.splitMode === '只有胡' ? '胡全付' : '詹全付';
+  const label = r.splitMode === '均分' ? '各付一半' : r.splitMode === '只有胡' ? '只算胡的' : '只算詹的';
   return `<div class="record-item${r._voided ? ' is-voided' : ''}">
     ${recordAvatarHTML(r.paidBy, isHu ? 'me' : 'other', true)}
     <div class="record-info" ${clickAttr}>
