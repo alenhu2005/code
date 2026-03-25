@@ -884,6 +884,14 @@ export function openEditRecord(r) {
   appState._editRecord = r;
   editPhotoPendingChange = null;
 
+  const summary = document.getElementById('edit-summary');
+  if (summary) {
+    const amt = parseFloat(r.amount) || 0;
+    const paidBy = r.paidBy ? `${r.paidBy}付` : '';
+    summary.innerHTML = `<div class="edit-summary-item">${esc(r.item || '—')}</div>`
+      + `<div class="edit-summary-meta">${esc(r.date || '')}${paidBy ? ' · ' + esc(paidBy) : ''}${amt ? ' · NT$' + Math.round(amt) : ''}</div>`;
+  }
+
   document.getElementById('edit-date').value = r.date || todayStr();
   document.getElementById('edit-note').value = r.note || '';
   document.getElementById('edit-category').value = r.category || guessCategoryFromItem(r.item) || '';

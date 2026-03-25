@@ -44,7 +44,9 @@
   <!-- Photo lightbox -->
   <div id="photo-lightbox" class="photo-lightbox" onclick="closePhotoLightbox()">
     <button type="button" class="photo-lightbox-close" aria-label="關閉">&times;</button>
-    <img id="photo-lightbox-img" class="photo-lightbox-img" alt="照片" onclick="event.stopPropagation()">
+    <div id="photo-lightbox-wrap" class="photo-lightbox-wrap" onclick="event.stopPropagation()">
+      <img id="photo-lightbox-img" class="photo-lightbox-img" alt="照片">
+    </div>
   </div>
 
   <!-- Toast -->
@@ -58,9 +60,21 @@
   <div id="edit-overlay" onclick="if(event.target===this)closeEditRecord()">
     <div class="edit-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-dialog-title">
       <h3 id="edit-dialog-title">編輯紀錄</h3>
-      <div class="form-group">
-        <label class="form-label">日期</label>
-        <input type="date" id="edit-date" class="form-input">
+      <div id="edit-summary" class="edit-summary"></div>
+      <div class="form-group" id="edit-category-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:6px">
+          分類
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);background:var(--bg-tertiary);padding:1px 6px;border-radius:8px">AI 自動</span>
+        </label>
+        <select id="edit-category" class="form-input">
+          <option value="">（未分類）</option>
+          <option value="餐飲">🍽 餐飲</option>
+          <option value="交通">🚌 交通</option>
+          <option value="購物">🛍 購物</option>
+          <option value="娛樂">🎉 娛樂</option>
+          <option value="生活">🏠 生活</option>
+          <option value="其他">📦 其他</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">備注</label>
@@ -97,20 +111,9 @@
           </button>
         </div>
       </div>
-      <div class="form-group" id="edit-category-group">
-        <label class="form-label" style="display:flex;align-items:center;gap:6px">
-          分類
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted);background:var(--bg-tertiary);padding:1px 6px;border-radius:8px">AI 自動</span>
-        </label>
-        <select id="edit-category" class="form-input">
-          <option value="">（未分類）</option>
-          <option value="餐飲">🍽 餐飲</option>
-          <option value="交通">🚌 交通</option>
-          <option value="購物">🛍 購物</option>
-          <option value="娛樂">🎉 娛樂</option>
-          <option value="生活">🏠 生活</option>
-          <option value="其他">📦 其他</option>
-        </select>
+      <div class="form-group">
+        <label class="form-label">日期</label>
+        <input type="date" id="edit-date" class="form-input">
       </div>
       <div class="dialog-actions">
         <button class="btn btn-outline" onclick="closeEditRecord()">取消</button>

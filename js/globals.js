@@ -18,18 +18,88 @@ import {
   addToTripLotteryPoolFromSelect,
 } from './trip-lottery.js';
 
+let lbScale = 1, lbX = 0, lbY = 0, lbPinchDist = 0, lbPanning = false, lbStartX = 0, lbStartY = 0, lbOrigX = 0, lbOrigY = 0;
+
+function lbApply() {
+  const wrap = document.getElementById('photo-lightbox-wrap');
+  if (wrap) wrap.style.transform = `translate(${lbX}px,${lbY}px) scale(${lbScale})`;
+}
+function lbReset() {
+  lbScale = 1; lbX = 0; lbY = 0;
+  const wrap = document.getElementById('photo-lightbox-wrap');
+  if (wrap) wrap.style.transform = '';
+}
+
 function openPhotoLightbox(src) {
   if (!src) return;
   const lb = document.getElementById('photo-lightbox');
   const img = document.getElementById('photo-lightbox-img');
   if (!lb || !img) return;
   img.src = src;
+  lbReset();
   lb.classList.add('open');
 }
 function closePhotoLightbox() {
   const lb = document.getElementById('photo-lightbox');
   if (lb) lb.classList.remove('open');
+  lbReset();
 }
+
+(function initLightboxGestures() {
+  let lastTap = 0;
+  function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  document.addEventListener('touchstart', e => {
+    const lb = document.getElementById('photo-lightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    const wrap = document.getElementById('photo-lightbox-wrap');
+    if (!wrap || !wrap.contains(e.target)) return;
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      lbPinchDist = dist(e.touches);
+      lbPanning = false;
+    } else if (e.touches.length === 1 && lbScale > 1) {
+      lbPanning = true;
+      lbStartX = e.touches[0].clientX;
+      lbStartY = e.touches[0].clientY;
+      lbOrigX = lbX;
+      lbOrigY = lbY;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    const lb = document.getElementById('photo-lightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    if (e.touches.length === 2 && lbPinchDist > 0) {
+      e.preventDefault();
+      const d = dist(e.touches);
+      lbScale = Math.max(1, Math.min(5, lbScale * (d / lbPinchDist)));
+      lbPinchDist = d;
+      if (lbScale <= 1.05) { lbX = 0; lbY = 0; }
+      lbApply();
+    } else if (e.touches.length === 1 && lbPanning) {
+      e.preventDefault();
+      lbX = lbOrigX + (e.touches[0].clientX - lbStartX);
+      lbY = lbOrigY + (e.touches[0].clientY - lbStartY);
+      lbApply();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    const lb = document.getElementById('photo-lightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    if (e.touches.length < 2) lbPinchDist = 0;
+    if (e.touches.length === 0) {
+      lbPanning = false;
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        if (lbScale > 1.05) { lbScale = 1; lbX = 0; lbY = 0; } else { lbScale = 2.5; }
+        lbApply();
+      }
+      lastTap = now;
+    }
+    if (lbScale <= 1.05) { lbScale = 1; lbX = 0; lbY = 0; lbApply(); }
+  });
+})();
 
 Object.assign(window, {
   openPhotoLightbox,
