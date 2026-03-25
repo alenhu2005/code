@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows } from './data.js';
+import { getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows, getAvatarUrlByMemberName } from './data.js';
 import { computeSettlements } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr } from './utils.js';
@@ -165,13 +165,32 @@ export function renderDetailMemberChips(members) {
   const el = document.getElementById('detail-member-chips');
   el.innerHTML = members
     .map(m => {
+      const avatarUrl = getAvatarUrlByMemberName(m);
+      const avatarHtml = avatarUrl
+        ? `<img class="member-chip-avatar" src="${avatarUrl}" alt="${esc(m)} 頭像">`
+        : `<span class="member-chip-avatar member-chip-avatar--fallback" aria-hidden="true">${esc(m.charAt(0))}</span>`;
+
       const removeBtn =
         members.length > 2
           ? `<button class="member-chip-remove" title="移除" onclick="removeMemberAction(${jqAttr(m)})">
            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
          </button>`
           : '';
-      return `<span class="member-chip">${esc(m)}${removeBtn}</span>`;
+      return `
+        <span class="member-chip">
+          ${avatarHtml}
+          <span class="member-chip-name">${esc(m)}</span>
+          <button
+            type="button"
+            class="member-chip-avatar-btn"
+            title="上傳/更換頭像"
+            aria-label="上傳/更換頭像"
+            onclick="openAvatarPickerForMember(${jqAttr(m)})"
+          >
+            <svg viewBox="0 0 24 24"><path d="M9 7l1-2h4l1 2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3zm3 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
+          </button>
+          ${removeBtn}
+        </span>`;
     })
     .join('');
 }

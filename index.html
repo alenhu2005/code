@@ -58,7 +58,39 @@
       </div>
       <div class="form-group">
         <label class="form-label">備注</label>
-        <input type="text" id="edit-note" class="form-input" placeholder="選填">
+        <div class="edit-note-photo-row">
+          <input type="text" id="edit-note" class="form-input" placeholder="選填">
+          <button
+            type="button"
+            id="edit-photo-btn"
+            class="edit-photo-btn"
+            onclick="openEditPhotoPicker()"
+            aria-label="拍照上傳照片"
+            title="拍照上傳"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l1-2h4l1 2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3zm3 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
+          </button>
+        </div>
+        <input
+          type="file"
+          id="edit-photo-input"
+          accept="image/*"
+          capture="environment"
+          style="display:none"
+          onchange="handleEditPhotoSelected(event)"
+        >
+        <div class="edit-photo-preview-row">
+          <img id="edit-photo-preview" class="edit-photo-preview hidden" alt="照片預覽">
+          <button
+            type="button"
+            id="edit-photo-remove-btn"
+            class="btn btn-outline btn-sm"
+            style="display:none"
+            onclick="removeEditPhoto()"
+          >
+            移除
+          </button>
+        </div>
       </div>
       <div class="form-group" id="edit-category-group">
         <label class="form-label" style="display:flex;align-items:center;gap:6px">
@@ -81,6 +113,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Avatar uploader (trip members: global, once upload then reuse) -->
+  <input
+    type="file"
+    id="avatar-upload-input"
+    accept="image/*"
+    capture="environment"
+    style="display:none"
+    onchange="handleAvatarSelected(event)"
+  >
 
   <!-- Confirm dialog -->
   <div id="dialog-overlay" onclick="if(event.target===this)cancelDialog()">

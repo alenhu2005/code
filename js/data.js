@@ -17,6 +17,8 @@ export function getDailyRecordsFromRows(allRows) {
     editMap[e.id] = {
       date: normalizeDate(e.date),
       note: e.note ?? '',
+      ...(e.photoUrl !== undefined ? { photoUrl: e.photoUrl } : {}),
+      ...(e.photoFileId !== undefined ? { photoFileId: e.photoFileId } : {}),
       ...(e.category !== undefined ? { category: e.category } : {}),
     };
   }
@@ -94,6 +96,8 @@ export function getTripExpensesFromRows(tripId, allRows) {
     editMap[e.id] = {
       date: normalizeDate(e.date),
       note: e.note ?? '',
+      ...(e.photoUrl !== undefined ? { photoUrl: e.photoUrl } : {}),
+      ...(e.photoFileId !== undefined ? { photoFileId: e.photoFileId } : {}),
       ...(e.category !== undefined ? { category: e.category } : {}),
     };
   }
@@ -117,6 +121,22 @@ export function getTripExpensesFromRows(tripId, allRows) {
 
 export function getTripExpenses(tripId) {
   return getTripExpensesFromRows(tripId, appState.allRows);
+}
+
+/**
+ * 全域成員頭像（每個成員最多以最後一次上傳為準）
+ * @param {string} memberName
+ * @returns {string|null}
+ */
+export function getAvatarUrlByMemberName(memberName) {
+  const name = memberName ?? '';
+  let last = null;
+  for (const r of appState.allRows) {
+    if (r && r.type === 'avatar' && r.memberName === name && r.avatarUrl) {
+      last = r.avatarUrl;
+    }
+  }
+  return last;
 }
 
 /**

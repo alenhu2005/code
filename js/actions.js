@@ -654,12 +654,101 @@ export async function copyTripSettlementSummary(tripId) {
 }
 
 // ── Edit dialog ──────────────────────────────────────────────────────────────
+const EDIT_PHOTO_STORAGE_KEY_PREFIX = 'ledger_edit_photo_v1';
+
+let editPhotoPendingChange = null;
+/**
+ * @typedef {{ kind: 'replace'; dataUrl: string } | { kind: 'remove' }} EditPhotoPendingChange
+ */
+
+function editPhotoStorageKey(type, id) {
+  return `${EDIT_PHOTO_STORAGE_KEY_PREFIX}:${String(type || '')}:${String(id || '')}`;
+}
+
+function readEditPhotoDataUrl(type, id) {
+  try {
+    const k = editPhotoStorageKey(type, id);
+    return localStorage.getItem(k) || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeEditPhotoDataUrl(type, id, dataUrl) {
+  const k = editPhotoStorageKey(type, id);
+  localStorage.setItem(k, dataUrl);
+}
+
+function removeEditPhotoDataUrl(type, id) {
+  const k = editPhotoStorageKey(type, id);
+  localStorage.removeItem(k);
+}
+
+function setEditPhotoPreview(dataUrl) {
+  const img = document.getElementById('edit-photo-preview');
+  const removeBtn = document.getElementById('edit-photo-remove-btn');
+  const inp = document.getElementById('edit-photo-input');
+
+  if (!img || !removeBtn || !inp) return;
+
+  if (!dataUrl) {
+    img.src = '';
+    img.classList.add('hidden');
+    removeBtn.style.display = 'none';
+    return;
+  }
+
+  img.src = dataUrl;
+  img.classList.remove('hidden');
+  removeBtn.style.display = '';
+}
+
+async function fileToJpegDataUrl(file, { maxDim = 1024, quality = 0.78 } = {}) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = 'async';
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = url;
+    });
+
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) throw new Error('bad image dimensions');
+
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    const outW = Math.max(1, Math.round(w * scale));
+    const outH = Math.max(1, Math.round(h * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas 2d unsupported');
+    ctx.drawImage(img, 0, 0, outW, outH);
+
+    // Use JPEG to reduce localStorage size vs raw PNG.
+    return canvas.toDataURL('image/jpeg', quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function openEditRecord(r) {
   if (r._voided) return;
   appState._editRecord = r;
+  editPhotoPendingChange = null;
+
   document.getElementById('edit-date').value = r.date || todayStr();
   document.getElementById('edit-note').value = r.note || '';
   document.getElementById('edit-category').value = r.category || guessCategoryFromItem(r.item) || '';
+
+  const inp = document.getElementById('edit-photo-input');
+  if (inp) inp.value = '';
+  setEditPhotoPreview(r.photoUrl || null);
+
   document.getElementById('edit-overlay').classList.add('open');
 }
 
@@ -674,6 +763,10 @@ export function openEditRecordById(id, isTripExpense) {
 export function closeEditRecord() {
   document.getElementById('edit-overlay').classList.remove('open');
   appState._editRecord = null;
+  editPhotoPendingChange = null;
+
+  // Clear preview UI; next openEditRecord will reload stored photo.
+  setEditPhotoPreview(null);
 }
 
 export async function submitEditRecord() {
@@ -689,6 +782,22 @@ export async function submitEditRecord() {
   const doRender = () => (isTrip ? renderTripDetail() : renderHome());
 
   const category = document.getElementById('edit-category').value;
+  // Persist photo change via GAS: photoDataUrl -> photoUrl/photoFileId.
+  // - replace: photoDataUrl = base64
+  // - remove: photoDataUrl = '' (GAS 會把 photoUrl/photoFileId 清空)
+  let photoDataUrlToSend;
+  let photoUrlToSet;
+  if (editPhotoPendingChange && appState._editRecord.id) {
+    if (editPhotoPendingChange.kind === 'remove') {
+      photoDataUrlToSend = '';
+      photoUrlToSet = '';
+    } else {
+      photoDataUrlToSend = editPhotoPendingChange.dataUrl;
+      // Optimistic UI: use local dataUrl as photoUrl until sync replaces with Drive url.
+      photoUrlToSet = editPhotoPendingChange.dataUrl;
+    }
+  }
+
   const row = {
     type: appState._editRecord.type,
     action: 'edit',
@@ -696,6 +805,9 @@ export async function submitEditRecord() {
     date,
     note,
     category,
+    ...(photoDataUrlToSend !== undefined
+      ? { photoDataUrl: photoDataUrlToSend, photoUrl: photoUrlToSet, photoFileId: '' }
+      : {}),
   };
   appState.allRows.push(row);
   doRender();
@@ -706,6 +818,113 @@ export async function submitEditRecord() {
   } catch (e) {
     undoOptimisticPush(row);
     doRender();
+    toast(formatPostError(e));
+  }
+}
+
+export function openEditPhotoPicker() {
+  const inp = document.getElementById('edit-photo-input');
+  if (!inp) return;
+  // Prefer file picker / camera on supported mobile browsers.
+  inp.click();
+}
+
+export async function handleEditPhotoSelected(ev) {
+  const rec = appState._editRecord;
+  if (!rec || !rec.id) return;
+  const inp = ev && ev.target;
+  const file = inp && inp.files && inp.files[0];
+  if (!file) return;
+
+  if (!String(file.type || '').startsWith('image/')) {
+    toast('請選擇圖片檔');
+    return;
+  }
+  // Prevent extreme files from freezing the tab.
+  if (file.size > 8_000_000) {
+    toast('圖片檔案過大，請改選較小的照片');
+    return;
+  }
+
+  try {
+    const dataUrl = await fileToJpegDataUrl(file);
+    editPhotoPendingChange = { kind: 'replace', dataUrl };
+    setEditPhotoPreview(dataUrl);
+  } catch {
+    toast('照片讀取失敗，請再試一次');
+  }
+}
+
+export function removeEditPhoto() {
+  const rec = appState._editRecord;
+  if (!rec || !rec.id) return;
+  editPhotoPendingChange = { kind: 'remove' };
+  setEditPhotoPreview(null);
+
+  const inp = document.getElementById('edit-photo-input');
+  if (inp) inp.value = '';
+}
+
+// ── Avatar uploader (global, per memberName) ──────────────────────────────
+let avatarUploadMemberName = null;
+
+export function openAvatarPickerForMember(memberName) {
+  avatarUploadMemberName = memberName;
+  const inp = document.getElementById('avatar-upload-input');
+  if (!inp) return;
+  inp.value = '';
+  inp.click();
+}
+
+export async function handleAvatarSelected(ev) {
+  const memberName = avatarUploadMemberName;
+  avatarUploadMemberName = null;
+
+  const inp = ev && ev.target;
+  const file = inp && inp.files && inp.files[0];
+  if (!memberName || !file) return;
+
+  if (!String(file.type || '').startsWith('image/')) {
+    toast('請選擇圖片檔');
+    return;
+  }
+  // Avatar 用小一點，避免上傳/解碼太重。
+  if (file.size > 8_000_000) {
+    toast('圖片檔案過大，請改選較小的照片');
+    return;
+  }
+
+  let dataUrl;
+  try {
+    dataUrl = await fileToJpegDataUrl(file, { maxDim: 256, quality: 0.78 });
+  } catch {
+    toast('照片讀取失敗，請再試一次');
+    return;
+  }
+
+  // Optimistic: 立刻在 UI 顯示，之後下一次同步會用 Drive URL 覆蓋。
+  const optimisticRow = {
+    type: 'avatar',
+    action: 'set',
+    id: uid(),
+    memberName,
+    avatarUrl: dataUrl,
+  };
+  appState.allRows.push(optimisticRow);
+  if (appState.currentTripId) renderTripDetail();
+
+  try {
+    await postRow({
+      type: 'avatar',
+      action: 'set',
+      id: optimisticRow.id,
+      memberName,
+      avatarDataUrl: dataUrl,
+    });
+    toast('頭像已更新');
+  } catch (e) {
+    undoOptimisticPush(optimisticRow);
+    renderTripDetail();
     toast(formatPostError(e));
   }
 }

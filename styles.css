@@ -1100,6 +1100,33 @@
       background: var(--primary-light); color: var(--primary);
       font-size: 12px; font-weight: 500;
     }
+    .member-chip-name { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .member-chip-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      background: rgba(255,255,255,.6);
+      border: 1px solid rgba(59,130,246,.25);
+    }
+    .member-chip-avatar--fallback {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,.7);
+      border: 1px solid rgba(59,130,246,.25);
+    }
+    .member-chip-avatar-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 0; margin: 0; color: inherit;
+      opacity: .75; display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      width: 26px; height: 26px; border-radius: 10px;
+      transition: background 0.2s ease, opacity 0.2s ease, transform 0.12s ease;
+    }
+    .member-chip-avatar-btn svg { width: 14px; height: 14px; fill: currentColor; display: block; }
+    .member-chip-avatar-btn:hover { opacity: 1; background: rgba(59,130,246,.08); }
+    .member-chip-avatar-btn:active { transform: scale(0.96); }
+
     .member-chip-remove {
       background: none; border: none; cursor: pointer; color: inherit;
       opacity: .7; padding: 0; line-height: 1; display: flex; align-items: center;
@@ -1400,6 +1427,32 @@
     .edit-dialog h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
     .edit-dialog .form-group { margin-bottom: 14px; }
 
+    /* ── Edit record photo picker ── */
+    .hidden { display: none !important; }
+    .edit-note-photo-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .edit-note-photo-row .form-input { flex: 1; }
+    .edit-photo-btn {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); flex-shrink: 0;
+      transition: transform .12s ease, background .2s ease;
+    }
+    .edit-photo-btn:hover { background: var(--border); }
+    .edit-photo-btn:active { transform: scale(0.94); }
+    .edit-photo-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+    .edit-photo-preview-row {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 8px;
+    }
+    .edit-photo-preview {
+      width: 72px; height: 54px; object-fit: cover;
+      border-radius: 12px; border: 1px solid var(--border);
+      background: #ffffff;
+    }
+
     /* ── Dark mode ── */
     html.dark {
       --bg: #0f172a;
@@ -1429,6 +1482,7 @@
     html.dark .badge-void { background: #7f1d1d; color: #fca5a5; }
     html.dark .settle-btn { background: #064e3b; color: #6ee7b7; }
     html.dark .settle-btn:hover { background: #065f46; }
+    html.dark .edit-photo-preview { background: #0f172a; }
     html.dark .show-more-btn:hover { background: rgba(59,130,246,.1); }
     html.dark .form-input {
       background: #0f172a; border-color: var(--border);
