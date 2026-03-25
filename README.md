@@ -6,7 +6,8 @@
 
 | 路徑 | 說明 |
 |------|------|
-| `index.html` | 頁面結構、主題切換（避免深色模式閃爍的內嵌 script） |
+| `index.html` | 頁面結構、動態 `<base>`（修正 GitHub Pages 無結尾 `/` 時資源路徑）、主題切換 |
+| `.nojekyll` | 關閉 Jekyll，避免 Pages 處理時略過部分靜態檔 |
 | `styles.css` | 樣式 |
 | `js/main.js` | 入口（ES module） |
 | `js/config.js` | `API_URL`、逾時與快取鍵（可選：`window.__LEDGER_API_URL__` 覆寫網址） |
@@ -26,6 +27,8 @@
 **https://alenhu2005.github.io/code/**
 
 （實際網址以 GitHub 專案 **Settings → Pages** 顯示為準。）
+
+**若線上版空白／樣式全掛：** 常見原因是開成 `…/code` 而沒有結尾斜線，瀏覽器會把 `js/main.js` 解析到錯誤路徑。`index.html` 已內建修正；部署後請**強制重新整理**或清快取再試。
 
 部署後請在 `js/config.js` 確認 `API_URL` 指向你已部署的 GAS Web App，或在載入 `js/main.js` **之前**於頁面設定 `window.__LEDGER_API_URL__ = '你的 GAS URL'`。
 

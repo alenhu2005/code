@@ -2,6 +2,19 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // GitHub Pages：若網址是 /repo 而沒有結尾 /，相對路徑 js/、styles.css 會錯解析到網域根目錄 → 載入失敗
+    (function () {
+      if (location.protocol === 'file:') return;
+      var p = location.pathname;
+      if (/\/index\.html$/i.test(p)) p = p.replace(/\/index\.html$/i, '/');
+      else if (p.length > 1 && !p.endsWith('/')) p += '/';
+      var b = document.createElement('base');
+      b.href = location.origin + (p || '/');
+      var m = document.querySelector('meta[charset]');
+      document.head.insertBefore(b, m ? m.nextSibling : document.head.firstChild);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
