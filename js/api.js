@@ -2,6 +2,7 @@ import {
   API_URL,
   CACHE_DAILY,
   CACHE_TRIP,
+  CACHE_LEGACY_KEYS,
   GET_TIMEOUT_MS,
   POST_TIMEOUT_MS,
 } from './config.js';
@@ -28,6 +29,19 @@ export function saveCache() {
     localStorage.setItem(CACHE_TRIP, JSON.stringify(appState.allRows.filter(isTripRow)));
   } catch {
     /* ignore quota */
+  }
+}
+
+/** 移除 localStorage 內帳本相關快取（不動 theme 等其它鍵）。成功從 GAS 拉資料並覆寫前呼叫。 */
+function clearLedgerLocalStorage() {
+  try {
+    localStorage.removeItem(CACHE_DAILY);
+    localStorage.removeItem(CACHE_TRIP);
+    for (const k of CACHE_LEGACY_KEYS) {
+      localStorage.removeItem(k);
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -63,6 +77,7 @@ export async function loadData() {
       return r;
     });
 
+    clearLedgerLocalStorage();
     appState.allRows = fresh;
     saveCache();
   } catch (e) {

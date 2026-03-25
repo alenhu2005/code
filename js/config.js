@@ -12,6 +12,9 @@ export const API_URL =
 export const CACHE_DAILY = 'gasRows_daily_v2';
 export const CACHE_TRIP = 'gasRows_trip_v2';
 
+/** 舊版快取鍵，收到 GAS 成功同步時一併移除 */
+export const CACHE_LEGACY_KEYS = ['gasRows_daily_v1', 'gasRows_trip_v1'];
+
 export const POST_TIMEOUT_MS = 45_000;
 export const GET_TIMEOUT_MS = 10_000;
 export const POLL_MS = 30_000;
