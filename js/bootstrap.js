@@ -123,18 +123,45 @@ function initBottomNavTouchNavigate() {
   for (const [id, page] of pairs) {
     const el = document.getElementById(id);
     if (!el) continue;
-    const clearPress = () => el.classList.remove('nav-btn--pressed');
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let touching = false;
+    const clearPress = () => {
+      touching = false;
+      el.classList.remove('nav-btn--pressed');
+    };
     el.addEventListener(
       'touchstart',
       e => {
-        e.preventDefault();
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        touching = true;
+        startX = t.clientX;
+        startY = t.clientY;
+        startT = Date.now();
         el.classList.add('nav-btn--pressed');
-        navigate(page);
-        syncOnNavigate();
+      },
+      { passive: true },
+    );
+    el.addEventListener(
+      'touchend',
+      e => {
+        const t = e.changedTouches && e.changedTouches[0];
+        if (!t) return clearPress();
+        const dx = Math.abs(t.clientX - startX);
+        const dy = Math.abs(t.clientY - startY);
+        const dt = Date.now() - startT;
+        // Treat as tap only when finger released, minimal movement.
+        if (touching && dx <= 10 && dy <= 10 && dt <= 700) {
+          e.preventDefault(); // prevent synthetic click (avoid double navigation)
+          navigate(page);
+          syncOnNavigate();
+        }
+        clearPress();
       },
       { passive: false },
     );
-    el.addEventListener('touchend', clearPress);
     el.addEventListener('touchcancel', clearPress);
     el.addEventListener('click', () => syncOnNavigate());
   }
