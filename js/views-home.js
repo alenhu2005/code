@@ -26,9 +26,7 @@ function runBalanceAmountCountUp(mainEl, settleBtn, fromAbs, toAbs, onDone, dura
     const eased = 1 - (1 - u) ** 3;
     const val = Math.round(from + delta * eased);
     mainEl.textContent = 'NT$ ' + val;
-    if (settleBtn && settleBtn.style.display !== 'none') {
-      settleBtn.textContent = '✓ 還款 NT$' + val;
-    }
+    // settle button stays as "✓ 還款" to avoid distracting amount changes
     if (u < 1) {
       requestAnimationFrame(frame);
     } else if (onDone) {
@@ -66,7 +64,7 @@ export function renderHome() {
     settleBtn.style.display = 'inline-block';
     if (wantBalanceAnim) {
       main.textContent = 'NT$ 0';
-      settleBtn.textContent = '✓ 還款 NT$0';
+      settleBtn.textContent = '✓ 還款';
       runBalanceAmountCountUp(main, settleBtn, 0, absAmt, () => {
         appState.homeBalanceAbsShown = absAmt;
       });
@@ -77,13 +75,13 @@ export function renderHome() {
     ) {
       const from = Math.max(0, Math.round(deltaFromAbs));
       main.textContent = 'NT$ ' + from;
-      settleBtn.textContent = '✓ 還款 NT$' + from;
+      settleBtn.textContent = '✓ 還款';
       runBalanceAmountCountUp(main, settleBtn, from, absAmt, () => {
         appState.homeBalanceAbsShown = absAmt;
       }, 760);
     } else {
       main.textContent = 'NT$ ' + absAmt;
-      settleBtn.textContent = '✓ 還款 NT$' + absAmt;
+      settleBtn.textContent = '✓ 還款';
       appState.homeBalanceAbsShown = absAmt;
     }
   }
