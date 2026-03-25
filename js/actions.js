@@ -2,12 +2,12 @@ import { appState } from './state.js';
 import { todayStr } from './time.js';
 import { uid, toast, esc, jqAttr } from './utils.js';
 import { postRow, formatPostError } from './api.js';
-import { getDailyRecords, getTripById, getTripExpenses } from './data.js';
-import { computeBalance } from './finance.js';
+import { getDailyRecords, getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows } from './data.js';
+import { computeBalance, computeSettlements } from './finance.js';
 import { showConfirm } from './dialog.js';
 import { guessCategoryFromItem } from './category.js';
 import { navigate } from './navigation.js';
-import { renderHome } from './views-home.js';
+import { renderHome, cancelHomeBalanceAnim } from './views-home.js';
 import { renderTrips } from './views-trips.js';
 import {
   renderTripDetail,
@@ -16,6 +16,11 @@ import {
   updateMultiPayTotal,
 } from './views-trip-detail.js';
 import { buildTripSettlementSummaryText } from './trip-stats.js';
+
+function snapshotPendingHomeBalanceFromAbs() {
+  const b = computeBalance(getDailyRecords());
+  appState.pendingHomeBalanceFromAbs = b === 0 ? 0 : Math.round(Math.abs(b));
+}
 
 // ── Home form ────────────────────────────────────────────────────────────────
 export function setHomePaidBy(val) {
@@ -36,19 +41,33 @@ export function setHomeSplitMode(val) {
 
 export function toggleCollapsible(id, iconId) {
   const el = document.getElementById(id);
-  const open = el.classList.toggle('open');
-  document.getElementById(iconId).innerHTML = open
-    ? '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>'
-    : '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>';
+  if (!el) return;
+  const open = el.classList.toggle('is-open');
+  const icon = document.getElementById(iconId);
+  if (icon) {
+    icon.innerHTML = open
+      ? '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>'
+      : '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>';
+  }
 }
 
 // ── Trip detail form ─────────────────────────────────────────────────────────
+export function setDetailPaidBy(name) {
+  const trip = getTripById(appState.currentTripId);
+  if (!trip || !trip.members.includes(name)) return;
+  appState.detailPaidBy = name;
+  document.querySelectorAll('#d-paidby-toggles .btn-toggle').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.member === name);
+  });
+}
+
 export function toggleMultiPay() {
   appState.detailMultiPay = !appState.detailMultiPay;
   document.getElementById('d-paidby-group').style.display = appState.detailMultiPay ? 'none' : '';
   document.getElementById('d-amount-group').style.display = appState.detailMultiPay ? 'none' : '';
   document.getElementById('d-multipay-group').style.display = appState.detailMultiPay ? '' : 'none';
-  document.getElementById('d-multipay-toggle').textContent = appState.detailMultiPay ? '單人付款' : '多人出款';
+  const tog = document.getElementById('d-multipay-toggle');
+  if (tog) tog.textContent = appState.detailMultiPay ? '單人付款' : '多人出款';
   if (appState.detailMultiPay) {
     document.getElementById('d-payers-list').innerHTML = '';
     const trip = getTripById(appState.currentTripId);
@@ -59,21 +78,84 @@ export function toggleMultiPay() {
   updatePerPerson();
 }
 
+export function setPayerRowMember(btn) {
+  const row = btn.closest('.payer-row');
+  if (!row) return;
+  const m = btn.dataset.member;
+  const hidden = row.querySelector('input.payer-name');
+  if (hidden) hidden.value = m;
+  row.querySelectorAll('.payer-name-toggles .btn-toggle').forEach(b => {
+    b.classList.toggle('active', b === btn);
+  });
+  updateMultiPayTotal();
+}
+
 export function addPayerRow(membersOverride) {
   const trip = getTripById(appState.currentTripId);
   const members = membersOverride || (trip ? trip.members : []);
   const list = document.getElementById('d-payers-list');
   const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:6px;align-items:center';
+  row.className = 'payer-row';
+  const defaultMember = members[0] || '';
+  const toggles = members
+    .map(
+      m =>
+        `<button type="button" class="btn-toggle${m === defaultMember ? ' active' : ''}" data-member="${esc(m)}" onclick="setPayerRowMember(this)">${esc(m)}</button>`,
+    )
+    .join('');
   row.innerHTML = `
-    <select class="form-select payer-name" style="flex:1" onchange="updateMultiPayTotal()">
-      ${members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
-    </select>
-    <input type="number" class="form-input payer-amount" placeholder="金額" min="0" step="1"
-      style="flex:1" oninput="updateMultiPayTotal()">
-    <button type="button" onclick="this.parentNode.remove();updateMultiPayTotal()"
-      style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:0 4px">×</button>`;
+    <div class="btn-group btn-group-payer payer-name-toggles" role="group" aria-label="付款人">
+      ${toggles}
+    </div>
+    <input type="hidden" class="payer-name" value="${esc(defaultMember)}">
+    <div class="payer-row-amount-line">
+      <input type="text" class="form-input form-input-amount payer-amount" placeholder="金額"
+        lang="en" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"
+        inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="付款金額"
+        oninput="updateMultiPayTotal()">
+      <button type="button" class="payer-row-remove" onclick="this.closest('.payer-row').remove();updateMultiPayTotal()" aria-label="刪除此列">×</button>
+    </div>`;
   list.appendChild(row);
+}
+
+/** 消費項目欄按 Enter → 聚焦下一個金額欄（略過 IME 組字中的 Enter） */
+export function focusAmountAfterHomeItem(ev) {
+  if (ev.key !== 'Enter') return;
+  if (ev.isComposing) return;
+  ev.preventDefault();
+  if (appState.homeSplitMode === '兩人付') {
+    document.getElementById('h-paidhu')?.focus();
+  } else {
+    document.getElementById('h-amount')?.focus();
+  }
+}
+
+/** 兩人付「各自出多少」：胡出 Enter → 詹出；詹出 Enter → 備注 */
+export function focusNextInBothPayHome(ev) {
+  if (ev.key !== 'Enter') return;
+  if (ev.isComposing) return;
+  ev.preventDefault();
+  const id = ev.target && ev.target.id;
+  if (id === 'h-paidhu') {
+    document.getElementById('h-paidzhan')?.focus();
+  } else if (id === 'h-paidzhan') {
+    document.getElementById('h-note')?.focus();
+  }
+}
+
+export function focusAmountAfterTripItem(ev) {
+  if (ev.key !== 'Enter') return;
+  if (ev.isComposing) return;
+  ev.preventDefault();
+  if (appState.detailMultiPay) {
+    const list = document.getElementById('d-payers-list');
+    if (!list.querySelector('.payer-amount')) {
+      addPayerRow();
+    }
+    list.querySelector('.payer-amount')?.focus();
+  } else {
+    document.getElementById('d-amount')?.focus();
+  }
 }
 
 export function toggleSplit(name) {
@@ -88,6 +170,60 @@ export function toggleSplit(name) {
 }
 
 // ── Daily actions ────────────────────────────────────────────────────────────
+/** @param {HTMLElement} el 按鈕（含 data-from / data-to，供辨識轉帳對象） */
+export async function recordTripSettlementOneAction(el) {
+  const trip = getTripById(appState.currentTripId);
+  if (!trip || trip._closed || !el) return;
+
+  const from = el.getAttribute('data-from') || '';
+  const to = el.getAttribute('data-to') || '';
+  if (!from || !to) return;
+
+  const expenses = getTripExpenses(trip.id);
+  const active = expenses.filter(e => !e._voided);
+  if (active.length === 0) {
+    toast('無有效消費可結清');
+    return;
+  }
+
+  const adjustments = getTripSettlementAdjustmentsFromRows(trip.id, appState.allRows);
+  const settlements = computeSettlements(trip.members, active, adjustments);
+  const match = settlements.find(s => s.from === from && s.to === to);
+  if (!match || match.amount < 0.01) {
+    toast('此筆已結清或建議已變更');
+    renderTripDetail();
+    return;
+  }
+
+  const amount = Math.round(match.amount);
+  const ok = await showConfirm('記錄還款', `${from} 付給 ${to} NT$${amount}`);
+  if (!ok) return;
+
+  const row = {
+    type: 'tripSettlement',
+    action: 'add',
+    id: uid(),
+    tripId: trip.id,
+    date: todayStr(),
+    from,
+    to,
+    amount,
+  };
+
+  const startLen = appState.allRows.length;
+  appState.allRows.push(row);
+  renderTripDetail();
+
+  try {
+    await postRow(row);
+    toast('已記錄還款');
+  } catch (e) {
+    appState.allRows.pop();
+    renderTripDetail();
+    toast(formatPostError(e));
+  }
+}
+
 export async function recordSettlement() {
   const records = getDailyRecords();
   const balance = computeBalance(records);
@@ -101,6 +237,7 @@ export async function recordSettlement() {
   if (!ok) return;
 
   const row = { type: 'settlement', action: 'add', id: uid(), date: todayStr(), amount, paidBy: debtor };
+  snapshotPendingHomeBalanceFromAbs();
   appState.allRows.push(row);
   renderHome();
   try {
@@ -108,6 +245,7 @@ export async function recordSettlement() {
     toast('已記錄還款！');
   } catch (e) {
     appState.allRows.pop();
+    cancelHomeBalanceAnim();
     renderHome();
     toast(formatPostError(e));
   }
@@ -159,6 +297,7 @@ export async function submitDailyRecord() {
     note,
     ...extraFields,
   };
+  snapshotPendingHomeBalanceFromAbs();
   appState.allRows.push(row);
   renderHome();
 
@@ -167,6 +306,7 @@ export async function submitDailyRecord() {
     toast('已記帳！');
   } catch (e) {
     appState.allRows.pop();
+    cancelHomeBalanceAnim();
     renderHome();
     toast(formatPostError(e));
   }
@@ -191,6 +331,7 @@ export async function voidDailyRecord(id) {
   );
   if (!ok) return;
   const row = { type: 'daily', action: 'void', id };
+  snapshotPendingHomeBalanceFromAbs();
   appState.allRows.push(row);
   renderHome();
   try {
@@ -198,6 +339,7 @@ export async function voidDailyRecord(id) {
     toast('已撤回');
   } catch (e) {
     appState.allRows.pop();
+    cancelHomeBalanceAnim();
     renderHome();
     toast(formatPostError(e));
   }
@@ -416,7 +558,7 @@ export async function submitTripExpense() {
     extraFields = { payers };
   } else {
     amount = parseFloat(document.getElementById('d-amount').value);
-    paidBy = document.getElementById('d-paidby').value;
+    paidBy = appState.detailPaidBy;
     if (!amount || amount <= 0) {
       toast('請輸入有效金額');
       return;

@@ -1,64 +1,85 @@
 import { appState } from './state.js';
 import { getDailyRecords } from './data.js';
 import { getAnalysisRange } from './time.js';
-import { esc } from './utils.js';
+import { esc, prefersReducedMotion } from './utils.js';
+import { makePieChartSVG, CAT_PIE_COLORS } from './pie-chart.js';
 
-const CAT_PIE_COLORS = {
-  餐飲: '#f59e0b',
-  交通: '#3b82f6',
-  購物: '#8b5cf6',
-  娛樂: '#ec4899',
-  生活: '#10b981',
-  其他: '#9ca3af',
-  未分類: '#cbd5e1',
-};
+let analysisCountGen = 0;
 
-function makePieChartSVG(slices, total) {
-  const cx = 110;
-  const cy = 110;
-  const R = 90;
-  const ri = 55;
-  const isDark = document.documentElement.classList.contains('dark');
-  const bgCard = isDark ? '#1e2025' : '#ffffff';
-  const textColor = isDark ? '#e4e8f0' : '#1a1d23';
-  const mutedColor = isDark ? '#7a8196' : '#9098af';
-  if (slices.length === 1) {
-    return `<svg width="220" height="220" viewBox="0 0 220 220">
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="${slices[0].color}"/>
-      <circle cx="${cx}" cy="${cy}" r="${ri}" fill="${bgCard}"/>
-      <text x="${cx}" y="${cy - 8}" text-anchor="middle" fill="${textColor}" font-size="16" font-weight="700">NT$${Math.round(total).toLocaleString()}</text>
-      <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="${mutedColor}" font-size="11">總支出</text>
-    </svg>`;
-  }
-  const paths = [];
-  let a = -Math.PI / 2;
-  for (const s of slices) {
-    const da = (s.amount / total) * 2 * Math.PI;
-    if (da < 0.005) {
-      a += da;
-      continue;
-    }
-    const ea = a + da;
-    const lg = da > Math.PI ? 1 : 0;
-    const x1 = cx + R * Math.cos(a);
-    const y1 = cy + R * Math.sin(a);
-    const x2 = cx + R * Math.cos(ea);
-    const y2 = cy + R * Math.sin(ea);
-    const ix1 = cx + ri * Math.cos(ea);
-    const iy1 = cy + ri * Math.sin(ea);
-    const ix2 = cx + ri * Math.cos(a);
-    const iy2 = cy + ri * Math.sin(a);
-    paths.push(
-      `<path d="M${x1},${y1} A${R},${R} 0 ${lg},1 ${x2},${y2} L${ix1},${iy1} A${ri},${ri} 0 ${lg},0 ${ix2},${iy2} Z" fill="${s.color}"/>`,
+function persistPieLabelOpts() {
+  try {
+    localStorage.setItem(
+      'ledger_pie_label_opts_v1',
+      JSON.stringify({
+        cat: appState.pieLabelShowCategory,
+        pct: appState.pieLabelShowPct,
+        amt: appState.pieLabelShowAmount,
+      }),
     );
-    a = ea;
+  } catch {
+    /* ignore */
   }
-  return `<svg width="220" height="220" viewBox="0 0 220 220" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,.12))">
-    ${paths.join('')}
-    <circle cx="${cx}" cy="${cy}" r="${ri}" fill="${bgCard}"/>
-    <text x="${cx}" y="${cy - 8}" text-anchor="middle" fill="${textColor}" font-size="16" font-weight="700">NT$${Math.round(total).toLocaleString()}</text>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="${mutedColor}" font-size="11">總支出</text>
-  </svg>`;
+}
+
+/**
+ * @param {HTMLElement} el
+ * @param {number} to
+ * @param {'currency'|'pct'} mode
+ * @param {number} gen
+ * @param {number} delayMs
+ * @param {number} durationMs
+ */
+function runCountUp(el, to, mode, gen, delayMs, durationMs) {
+  const from = 0;
+  const target = Math.round(to);
+  const startAnim = () => {
+    if (gen !== analysisCountGen) return;
+    const start = performance.now();
+    function frame(now) {
+      if (gen !== analysisCountGen) return;
+      const u = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - (1 - u) ** 3;
+      const val = Math.round(from + (target - from) * eased);
+      if (mode === 'pct') {
+        el.textContent = `${val}%`;
+      } else {
+        el.textContent = `NT$${val.toLocaleString()}`;
+      }
+      if (u < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  };
+  if (delayMs > 0) window.setTimeout(startAnim, delayMs);
+  else startAnim();
+}
+
+function playAnalysisCountUps(root) {
+  analysisCountGen++;
+  const gen = analysisCountGen;
+  if (prefersReducedMotion()) return;
+
+  const nodes = root.querySelectorAll('[data-analysis-count]');
+  const baseDuration = 820;
+  nodes.forEach((el, idx) => {
+    const raw = el.getAttribute('data-analysis-count');
+    const to = parseFloat(raw || '0') || 0;
+    const mode = el.getAttribute('data-analysis-mode') === 'pct' ? 'pct' : 'currency';
+    const delay = idx * 48;
+    runCountUp(el, to, mode, gen, delay, baseDuration);
+  });
+}
+
+/**
+ * @param {'cat'|'pct'|'amt'} field
+ * @param {boolean} checked
+ */
+export function setPieLabelOption(field, checked) {
+  const v = !!checked;
+  if (field === 'cat') appState.pieLabelShowCategory = v;
+  else if (field === 'pct') appState.pieLabelShowPct = v;
+  else if (field === 'amt') appState.pieLabelShowAmount = v;
+  persistPieLabelOpts();
+  renderAnalysis();
 }
 
 export function setAnalysisPeriod(p) {
@@ -108,53 +129,88 @@ export function renderAnalysis() {
 
   if (records.length === 0) {
     el.innerHTML = `
-      <div style="display:flex;gap:8px;margin-bottom:20px">${tabs}</div>
-      <div style="text-align:center;padding:60px 0;color:var(--text-muted)">
-        <div style="font-size:40px;margin-bottom:12px">📊</div>
-        <div style="font-size:14px">${periodLabel} 尚無支出紀錄</div>
+      <div class="analysis-tabs">${tabs}</div>
+      <div class="analysis-empty">
+        <div class="analysis-empty-icon" aria-hidden="true">📊</div>
+        <div class="analysis-empty-text">${periodLabel} 尚無支出紀錄</div>
       </div>`;
     return;
   }
+
+  const huR = Math.round(huTotal);
+  const zhanR = Math.round(zhanTotal);
+  const totalR = Math.round(total);
 
   const slices = Object.entries(catTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([cat, amt]) => ({ cat, amount: amt, color: CAT_PIE_COLORS[cat] || '#94a3b8' }));
 
   const legend = slices
-    .map(s => {
+    .map((s, idx) => {
       const pct = total > 0 ? Math.round((s.amount / total) * 100) : 0;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)">
-      <div style="width:12px;height:12px;border-radius:3px;background:${s.color};flex-shrink:0"></div>
-      <div style="flex:1;font-size:13px;font-weight:500;color:var(--text)">${esc(s.cat)}</div>
-      <div style="font-size:12px;color:var(--text-muted);min-width:32px;text-align:right">${pct}%</div>
-      <div style="font-size:14px;font-weight:600;color:var(--text);min-width:80px;text-align:right">NT$${Math.round(s.amount).toLocaleString()}</div>
+      const amtR = Math.round(s.amount);
+      return `<div class="analysis-legend-row" style="--legend-i:${idx}">
+      <div class="analysis-legend-swatch" style="background:${s.color}"></div>
+      <div class="analysis-legend-name">${esc(s.cat)}</div>
+      <div class="analysis-legend-pct" data-analysis-count="${pct}" data-analysis-mode="pct">${prefersReducedMotion() ? `${pct}%` : '0%'}</div>
+      <div class="analysis-legend-amt" data-analysis-count="${amtR}" data-analysis-mode="currency">${prefersReducedMotion() ? `NT$${amtR.toLocaleString()}` : 'NT$0'}</div>
     </div>`;
     })
     .join('');
 
+  const pieToggles = `
+    <div class="analysis-pie-label-toggles" role="group" aria-label="圓餅圖環上顯示">
+      <label class="analysis-pie-label-chip">
+        <input type="checkbox" ${appState.pieLabelShowCategory ? 'checked' : ''} onchange="setPieLabelOption('cat', this.checked)">
+        <span>分類</span>
+      </label>
+      <label class="analysis-pie-label-chip">
+        <input type="checkbox" ${appState.pieLabelShowPct ? 'checked' : ''} onchange="setPieLabelOption('pct', this.checked)">
+        <span>比例</span>
+      </label>
+      <label class="analysis-pie-label-chip">
+        <input type="checkbox" ${appState.pieLabelShowAmount ? 'checked' : ''} onchange="setPieLabelOption('amt', this.checked)">
+        <span>金額</span>
+      </label>
+    </div>`;
+
+  const labelOpts = {
+    cat: appState.pieLabelShowCategory,
+    pct: appState.pieLabelShowPct,
+    amt: appState.pieLabelShowAmount,
+  };
+
+  const statHuStart = prefersReducedMotion() ? `NT$${huR.toLocaleString()}` : 'NT$0';
+  const statZhanStart = prefersReducedMotion() ? `NT$${zhanR.toLocaleString()}` : 'NT$0';
+  const totalPctStart = prefersReducedMotion() ? '100%' : '0%';
+  const totalAmtStart = prefersReducedMotion() ? `NT$${totalR.toLocaleString()}` : 'NT$0';
+
   el.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:20px">${tabs}</div>
-    <div style="text-align:center;font-size:12px;color:var(--text-muted);margin-bottom:18px">${periodLabel}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
-      <div style="background:var(--bg-card);border-radius:14px;padding:14px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">胡 付出</div>
-        <div style="font-size:17px;font-weight:700;color:var(--primary)">NT$${Math.round(huTotal).toLocaleString()}</div>
+    <div class="analysis-tabs">${tabs}</div>
+    <div class="analysis-period">${periodLabel}</div>
+    <div class="analysis-stats-grid">
+      <div class="analysis-stat-card">
+        <div class="analysis-stat-label">胡 付出</div>
+        <div class="analysis-stat-val analysis-stat-val--hu" data-analysis-count="${huR}" data-analysis-mode="currency">${statHuStart}</div>
       </div>
-      <div style="background:var(--bg-card);border-radius:14px;padding:14px;text-align:center;border:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">詹 付出</div>
-        <div style="font-size:17px;font-weight:700;color:#10b981">NT$${Math.round(zhanTotal).toLocaleString()}</div>
+      <div class="analysis-stat-card">
+        <div class="analysis-stat-label">詹 付出</div>
+        <div class="analysis-stat-val analysis-stat-val--zhan" data-analysis-count="${zhanR}" data-analysis-mode="currency">${statZhanStart}</div>
       </div>
     </div>
-    <div style="display:flex;justify-content:center;margin-bottom:24px">
-      ${makePieChartSVG(slices, total)}
+    ${pieToggles}
+    <div class="analysis-pie-wrap">
+      ${makePieChartSVG(slices, total, labelOpts)}
     </div>
-    <div style="background:var(--bg-card);border-radius:16px;padding:0 16px;border:1px solid var(--border)">
+    <div class="analysis-legend-card">
       ${legend}
-      <div style="display:flex;align-items:center;gap:10px;padding:11px 0">
-        <div style="width:12px;height:12px;flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px;font-weight:700;color:var(--text)">合計</div>
-        <div style="font-size:12px;color:var(--text-muted);min-width:32px;text-align:right">100%</div>
-        <div style="font-size:14px;font-weight:700;color:var(--text);min-width:80px;text-align:right">NT$${Math.round(total).toLocaleString()}</div>
+      <div class="analysis-legend-row analysis-legend-row--total" style="--legend-n:${slices.length}">
+        <div class="analysis-legend-swatch analysis-legend-swatch--empty"></div>
+        <div class="analysis-legend-name analysis-legend-name--total">合計</div>
+        <div class="analysis-legend-pct" data-analysis-count="100" data-analysis-mode="pct">${totalPctStart}</div>
+        <div class="analysis-legend-amt analysis-legend-amt--total" data-analysis-count="${totalR}" data-analysis-mode="currency">${totalAmtStart}</div>
       </div>
     </div>`;
+
+  playAnalysisCountUps(el);
 }

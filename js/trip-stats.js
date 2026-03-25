@@ -5,6 +5,9 @@ import {
   computeTripDaySubtotals,
 } from './finance.js';
 import { esc } from './utils.js';
+import { makePieChartSVG, CAT_PIE_COLORS } from './pie-chart.js';
+import { appState } from './state.js';
+import { getTripSettlementAdjustmentsFromRows } from './data.js';
 
 export function renderTripStatsCard(members, expenses) {
   const active = expenses.filter(e => !e._voided);
@@ -32,6 +35,47 @@ export function renderTripStatsCard(members, expenses) {
   const netRows = members.slice().sort((a, b) => Math.abs(net[b]) - Math.abs(net[a]));
 
   const shareRows = members.slice().sort((a, b) => (share[b] || 0) - (share[a] || 0));
+
+  const catTotals = {};
+  for (const e of active) {
+    const a = parseFloat(e.amount) || 0;
+    const cat = e.category || '未分類';
+    catTotals[cat] = (catTotals[cat] || 0) + a;
+  }
+  const pieTotal = Object.values(catTotals).reduce((s, v) => s + v, 0);
+  const pieSlices = Object.entries(catTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amt]) => ({ cat, amount: amt, color: CAT_PIE_COLORS[cat] || '#94a3b8' }));
+
+  const tripPieBlock =
+    pieTotal > 0 && pieSlices.length > 0
+      ? `
+    <div class="trip-stats-section trip-stats-pie-section">
+      <div class="trip-stats-label">分類支出</div>
+      <div class="trip-pie-wrap analysis-pie-wrap">
+        ${makePieChartSVG(pieSlices, pieTotal, { cat: true, pct: true, amt: false })}
+      </div>
+      <div class="analysis-legend-card trip-pie-legend">
+        ${pieSlices
+          .map((s, idx) => {
+            const pct = pieTotal > 0 ? Math.round((s.amount / pieTotal) * 100) : 0;
+            return `<div class="analysis-legend-row" style="--legend-i:${idx}">
+          <div class="analysis-legend-swatch" style="background:${s.color}"></div>
+          <div class="analysis-legend-name">${esc(s.cat)}</div>
+          <div class="analysis-legend-pct">${pct}%</div>
+          <div class="analysis-legend-amt">NT$${Math.round(s.amount).toLocaleString()}</div>
+        </div>`;
+          })
+          .join('')}
+        <div class="analysis-legend-row analysis-legend-row--total" style="--legend-n:${pieSlices.length}">
+          <div class="analysis-legend-swatch analysis-legend-swatch--empty"></div>
+          <div class="analysis-legend-name analysis-legend-name--total">合計</div>
+          <div class="analysis-legend-pct">100%</div>
+          <div class="analysis-legend-amt analysis-legend-amt--total">NT$${Math.round(pieTotal).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>`
+      : '';
 
   const prepaidBlock = `
     <div class="trip-stats-section">
@@ -85,7 +129,7 @@ export function renderTripStatsCard(members, expenses) {
 
   const note = voidCount > 0 ? `<div class="trip-stats-note">＊ 已排除 ${voidCount} 筆撤回紀錄</div>` : '';
 
-  return `<div class="card-body trip-stats-body">${prepaidBlock}${shareBlock}${netBlock}${note}</div>`;
+  return `<div class="card-body trip-stats-body">${tripPieBlock}${prepaidBlock}${shareBlock}${netBlock}${note}</div>`;
 }
 
 export function buildTripSettlementSummaryText(trip, expenses) {
@@ -96,7 +140,11 @@ export function buildTripSettlementSummaryText(trip, expenses) {
   const share = computeMemberShareTotals(trip.members, expenses);
   const payerLines = trip.members.slice().sort((a, b) => (payers[b] || 0) - (payers[a] || 0));
   const prepaidSum = Object.values(payers).reduce((s, v) => s + v, 0);
-  const settlements = computeSettlements(trip.members, nonVoid);
+  const settlements = computeSettlements(
+    trip.members,
+    nonVoid,
+    getTripSettlementAdjustmentsFromRows(trip.id, appState.allRows),
+  );
   const dayMap = computeTripDaySubtotals(expenses);
   const dayKeys = Object.keys(dayMap).sort().reverse();
 

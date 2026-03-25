@@ -57,6 +57,7 @@ const TYPE_LABEL = {
   trip: '行程',
   tripMember: '行程成員',
   tripExpense: '出遊消費',
+  tripSettlement: '出遊還款結清',
 };
 
 /**
@@ -144,12 +145,17 @@ function humanSummaryForRow(r, tripNames, opts = {}) {
     return `「${tname}」刪除出遊消費（id：${r.id}）`;
   }
 
+  if (r.type === 'tripSettlement' && r.action === 'add') {
+    const amt = fmtMoney(r.amount);
+    return `「${tname}」${r.from} 付給 ${r.to} NT$${amt}（結清）`;
+  }
+
   return `${TYPE_LABEL[r.type] || r.type} · ${act}（id：${r.id || '—'}）`;
 }
 
 function rowAmountForDisplay(r) {
   if (r.action !== 'add') return '';
-  if (r.type === 'daily' || r.type === 'settlement' || r.type === 'tripExpense') {
+  if (r.type === 'daily' || r.type === 'settlement' || r.type === 'tripExpense' || r.type === 'tripSettlement') {
     const a = r.amount;
     if (a == null || a === '') return '';
     return fmtMoney(a);
@@ -211,6 +217,8 @@ export function allRowsToTechnicalCSV() {
     'splitAmong',
     'payers_json',
     'memberName',
+    'settlementFrom',
+    'settlementTo',
   ];
   const lines = [headers.join(',')];
   for (const r of appState.allRows) {
@@ -239,6 +247,8 @@ export function allRowsToTechnicalCSV() {
       splitAmong,
       payersJson,
       r.memberName ?? '',
+      r.from ?? '',
+      r.to ?? '',
     ];
     lines.push(vals.map(csvEscape).join(','));
   }
@@ -270,6 +280,7 @@ export function allRowsToBackupText() {
   const dailyLike = rows.filter(r => r.type === 'daily' || r.type === 'settlement');
   const tripOnly = rows.filter(r => r.type === 'trip');
   const tripExp = rows.filter(r => r.type === 'tripExpense');
+  const tripSet = rows.filter(r => r.type === 'tripSettlement');
   const tripMem = rows.filter(r => r.type === 'tripMember');
 
   const head = [
@@ -278,7 +289,7 @@ export function allRowsToBackupText() {
     '╚════════════════════════════════════════════════════════════╝',
     '',
     `匯出時間（台北）：${now}`,
-    `事件總筆數：${rows.length}（日常／還款相關 ${dailyLike.length} · 行程 ${tripOnly.length} · 出遊消費 ${tripExp.length} · 成員異動 ${tripMem.length}）`,
+    `事件總筆數：${rows.length}（日常／還款相關 ${dailyLike.length} · 行程 ${tripOnly.length} · 出遊消費 ${tripExp.length} · 出遊結清 ${tripSet.length} · 成員異動 ${tripMem.length}）`,
     '',
     '以下依「日期」排序；同一日多筆時維持原本順序。',
     '',

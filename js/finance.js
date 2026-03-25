@@ -31,7 +31,12 @@ export function computeBalance(records) {
   return net;
 }
 
-export function computeSettlements(members, expenses) {
+/**
+ * @param {string[]} members
+ * @param {object[]} expenses
+ * @param {{ from: string; to: string; amount: number }[]} [adjustments] 已記錄的出遊還款（from 付給 to）
+ */
+export function computeSettlements(members, expenses, adjustments = []) {
   const bal = {};
   members.forEach(m => {
     bal[m] = 0;
@@ -44,6 +49,12 @@ export function computeSettlements(members, expenses) {
       bal[e.paidBy] = (bal[e.paidBy] || 0) + e.amount;
     }
     for (const m of e.splitAmong) bal[m] = (bal[m] || 0) - share;
+  }
+  for (const adj of adjustments) {
+    const x = parseFloat(adj.amount) || 0;
+    if (x < 0.01) continue;
+    if (bal[adj.from] !== undefined) bal[adj.from] += x;
+    if (bal[adj.to] !== undefined) bal[adj.to] -= x;
   }
   const pos = Object.entries(bal)
     .filter(([, v]) => v > 0.01)

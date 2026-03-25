@@ -2,10 +2,43 @@ import { appState } from './state.js';
 import { getDailyRecords } from './data.js';
 import { computeBalance } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
-import { esc, jq } from './utils.js';
+import { esc, jq, prefersReducedMotion } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 
+let balanceCountGen = 0;
+
+/** 樂觀更新失敗時呼叫，中止進行中的結算數字刷動 */
+export function cancelHomeBalanceAnim() {
+  balanceCountGen++;
+}
+
+function runBalanceAmountCountUp(mainEl, settleBtn, fromAbs, toAbs, onDone, durationMs = 980) {
+  const gen = balanceCountGen;
+  const duration = durationMs;
+  const from = Math.round(fromAbs);
+  const to = Math.round(toAbs);
+  const delta = to - from;
+  const start = performance.now();
+  function frame(now) {
+    if (gen !== balanceCountGen) return;
+    const u = Math.min(1, (now - start) / duration);
+    const eased = 1 - (1 - u) ** 3;
+    const val = Math.round(from + delta * eased);
+    mainEl.textContent = 'NT$ ' + val;
+    if (settleBtn && settleBtn.style.display !== 'none') {
+      settleBtn.textContent = '✓ 還款 NT$' + val;
+    }
+    if (u < 1) {
+      requestAnimationFrame(frame);
+    } else if (onDone) {
+      onDone();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
 export function renderHome() {
+  balanceCountGen++;
   const records = getDailyRecords();
   appState._dailyRecordsCache = records;
   const expCount = records.filter(r => r.type === 'daily').length;
@@ -20,6 +53,14 @@ export function renderHome() {
   const svg = document.getElementById('balance-svg');
   const settleBtn = document.getElementById('settle-btn');
 
+  const wantBalanceAnim = appState.animateHomeBalanceNext && !prefersReducedMotion();
+  appState.animateHomeBalanceNext = false;
+  let deltaFromAbs = appState.pendingHomeBalanceFromAbs;
+  appState.pendingHomeBalanceFromAbs = null;
+  if (wantBalanceAnim) deltaFromAbs = null;
+
+  const absAmt = balance === 0 ? 0 : Math.round(Math.abs(balance));
+
   if (balance === 0) {
     bar.className = 'balance-bar';
     iconWrap.style.cssText = 'background:#eff6ff';
@@ -29,26 +70,81 @@ export function renderHome() {
     main.textContent = '帳目已清';
     who.textContent = '';
     settleBtn.style.display = 'none';
+    appState.homeBalanceAbsShown = 0;
   } else if (balance > 0) {
     bar.className = 'balance-bar success';
     iconWrap.style.cssText = 'background:#d1fae5';
     svg.style.cssText = 'fill:#10b981';
     svg.innerHTML =
       '<path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>';
-    main.textContent = 'NT$ ' + Math.round(balance);
     who.textContent = '詹欠胡';
     settleBtn.style.display = 'inline-block';
-    settleBtn.textContent = '✓ 還款 NT$' + Math.round(balance);
+    if (wantBalanceAnim) {
+      main.textContent = 'NT$ 0';
+      settleBtn.textContent = '✓ 還款 NT$0';
+      runBalanceAmountCountUp(main, settleBtn, 0, absAmt, () => {
+        appState.homeBalanceAbsShown = absAmt;
+      });
+    } else if (
+      typeof deltaFromAbs === 'number' &&
+      !prefersReducedMotion() &&
+      deltaFromAbs !== absAmt
+    ) {
+      const from = Math.max(0, Math.round(deltaFromAbs));
+      main.textContent = 'NT$ ' + from;
+      settleBtn.textContent = '✓ 還款 NT$' + from;
+      runBalanceAmountCountUp(
+        main,
+        settleBtn,
+        from,
+        absAmt,
+        () => {
+          appState.homeBalanceAbsShown = absAmt;
+        },
+        760,
+      );
+    } else {
+      main.textContent = 'NT$ ' + absAmt;
+      settleBtn.textContent = '✓ 還款 NT$' + absAmt;
+      appState.homeBalanceAbsShown = absAmt;
+    }
   } else {
     bar.className = 'balance-bar danger';
     iconWrap.style.cssText = 'background:#fee2e2';
     svg.style.cssText = 'fill:#ef4444';
     svg.innerHTML =
       '<path d="M16 18l2.29-2.29-4.88-4.88-4 4L2 7.41 3.41 6l6 6 4-4 6.3 6.29L22 12v6z"/>';
-    main.textContent = 'NT$ ' + Math.round(Math.abs(balance));
     who.textContent = '胡欠詹';
     settleBtn.style.display = 'inline-block';
-    settleBtn.textContent = '✓ 還款 NT$' + Math.round(Math.abs(balance));
+    if (wantBalanceAnim) {
+      main.textContent = 'NT$ 0';
+      settleBtn.textContent = '✓ 還款 NT$0';
+      runBalanceAmountCountUp(main, settleBtn, 0, absAmt, () => {
+        appState.homeBalanceAbsShown = absAmt;
+      });
+    } else if (
+      typeof deltaFromAbs === 'number' &&
+      !prefersReducedMotion() &&
+      deltaFromAbs !== absAmt
+    ) {
+      const from = Math.max(0, Math.round(deltaFromAbs));
+      main.textContent = 'NT$ ' + from;
+      settleBtn.textContent = '✓ 還款 NT$' + from;
+      runBalanceAmountCountUp(
+        main,
+        settleBtn,
+        from,
+        absAmt,
+        () => {
+          appState.homeBalanceAbsShown = absAmt;
+        },
+        760,
+      );
+    } else {
+      main.textContent = 'NT$ ' + absAmt;
+      settleBtn.textContent = '✓ 還款 NT$' + absAmt;
+      appState.homeBalanceAbsShown = absAmt;
+    }
   }
   sub.textContent = expCount > 0 ? '共 ' + expCount + ' 筆消費' : '';
 
@@ -103,6 +199,27 @@ export function renderHome() {
            </button>`
           : '';
     listEl.innerHTML = visible.map(r => dailyRecordHTML(r, balanceMap[r.id])).join('') + moreBtn;
+  }
+
+  const pageHome = document.getElementById('page-home');
+  if (pageHome) {
+    pageHome.classList.remove('home-refresh-reveal');
+    if (pageHome._homeRevealT) {
+      clearTimeout(pageHome._homeRevealT);
+      pageHome._homeRevealT = null;
+    }
+    if (wantBalanceAnim) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (appState.currentPage !== 'home') return;
+          pageHome.classList.add('home-refresh-reveal');
+          pageHome._homeRevealT = setTimeout(() => {
+            pageHome.classList.remove('home-refresh-reveal');
+            pageHome._homeRevealT = null;
+          }, 1250);
+        });
+      });
+    }
   }
 }
 

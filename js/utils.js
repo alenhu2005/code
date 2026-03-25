@@ -4,6 +4,35 @@ export function uid() {
     : Math.random().toString(36).slice(2) + Date.now();
 }
 
+/** 使用者偏好減少動態效果（無障礙／省電） */
+export function prefersReducedMotion() {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Uniform integer in [0, n). Uses crypto.getRandomValues with rejection sampling so
+ * each outcome has probability 1/n (no modulo bias from Math.random).
+ * Falls back to Math.floor(Math.random() * n) if crypto is unavailable.
+ * @param {number} n
+ */
+export function randomUniformIndex(n) {
+  const k = Math.floor(Number(n));
+  if (!Number.isFinite(k) || k <= 0) return 0;
+  if (k === 1) return 0;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const max = 0x100000000;
+    const limit = Math.floor(max / k) * k;
+    const buf = new Uint32Array(1);
+    let x;
+    do {
+      crypto.getRandomValues(buf);
+      x = buf[0];
+    } while (x >= limit);
+    return x % k;
+  }
+  return Math.floor(Math.random() * k);
+}
+
 export function esc(s) {
   if (s == null) return '';
   return String(s)

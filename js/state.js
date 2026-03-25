@@ -1,19 +1,55 @@
-/** Central mutable UI / session state (single object avoids circular import issues). */
+/**
+ * Central mutable UI / session state (single object avoids circular import issues).
+ * @property {'idle'|'syncing'|'synced'|'cache_only'|'error'} syncStatus
+ * @property {number|null} lastSyncAt — 上次成功從伺服端拉取並套用後的時間戳（ms）
+ */
 export const appState = {
   allRows: [],
+  /** 閒置 | 同步中 | 已與伺服端一致 | 僅快取（連線失敗）| 無資料且無法載入 */
+  syncStatus: 'idle',
+  lastSyncAt: null,
+
   currentPage: 'home',
   currentTripId: null,
 
   homePaidBy: '胡',
   homeSplitMode: '均分',
   homeShowAll: false,
+  /** 從其他分頁切換到「日常」時，結算金額是否做數字刷動 */
+  animateHomeBalanceNext: false,
+  /** 上次顯示在畫面上的結算金額絕對值（刷動動畫起點） */
+  homeBalanceAbsShown: null,
+  /** 記帳／撤回／還款後：日常結算由舊絕對值刷到新值（與切頁全頁動畫分開） */
+  pendingHomeBalanceFromAbs: null,
+
   _dailyRecordsCache: [],
   _tripExpenseCache: [],
 
   analysisPeriod: 'month',
+  /** 分析頁圓餅環上：分類 / 比例 / 金額（可各別關閉） */
+  ...(() => {
+    try {
+      const raw = localStorage.getItem('ledger_pie_label_opts_v1');
+      if (raw) {
+        const o = JSON.parse(raw);
+        return {
+          pieLabelShowCategory: o.cat !== false,
+          pieLabelShowPct: o.pct !== false,
+          pieLabelShowAmount: o.amt !== false,
+        };
+      }
+      if (localStorage.getItem('ledger_show_pie_labels_v1') === '0') {
+        return { pieLabelShowCategory: false, pieLabelShowPct: false, pieLabelShowAmount: false };
+      }
+    } catch {
+      /* fallthrough */
+    }
+    return { pieLabelShowCategory: false, pieLabelShowPct: false, pieLabelShowAmount: false };
+  })(),
 
   newTripMembers: [],
   detailSplitAmong: [],
+  detailPaidBy: '',
   detailMultiPay: false,
 
   _dlgResolve: null,

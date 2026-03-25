@@ -6,8 +6,17 @@ import { navigate } from './navigation.js';
 import { cancelDialog } from './dialog.js';
 import { toggleTheme } from './theme.js';
 import { toggleHomeHistory } from './views-home.js';
-import { setAnalysisPeriod } from './views-analysis.js';
+import { setAnalysisPeriod, setPieLabelOption } from './views-analysis.js';
 import * as actions from './actions.js';
+import {
+  startTripLotteryDraw,
+  setTripLotteryKeepInPool,
+  resetTripLotteryPool,
+  toggleTripLotteryPanel,
+  removeFromTripLotteryPool,
+  addToTripLotteryPoolFromInput,
+  addToTripLotteryPoolFromSelect,
+} from './trip-lottery.js';
 
 Object.assign(window, {
   navigate,
@@ -17,9 +26,11 @@ Object.assign(window, {
   toggleTheme,
   toggleHomeHistory,
   setAnalysisPeriod,
+  setPieLabelOption,
   closeEditRecord: actions.closeEditRecord,
   submitEditRecord: actions.submitEditRecord,
   recordSettlement: actions.recordSettlement,
+  recordTripSettlementOneAction: actions.recordTripSettlementOneAction,
   toggleCollapsible: actions.toggleCollapsible,
   setHomePaidBy: actions.setHomePaidBy,
   setHomeSplitMode: actions.setHomeSplitMode,
@@ -33,6 +44,8 @@ Object.assign(window, {
   createTrip: actions.createTrip,
   addDetailMember: actions.addDetailMember,
   addPayerRow: actions.addPayerRow,
+  setPayerRowMember: actions.setPayerRowMember,
+  setDetailPaidBy: actions.setDetailPaidBy,
   toggleMultiPay: actions.toggleMultiPay,
   submitTripExpense: actions.submitTripExpense,
   updateMultiPayTotal: actions.updateMultiPayTotal,
@@ -46,4 +59,14 @@ Object.assign(window, {
   removeMemberAction: actions.removeMemberAction,
   voidTripExpenseAction: actions.voidTripExpenseAction,
   removeNewTripMember: actions.removeNewTripMember,
+  focusAmountAfterHomeItem: actions.focusAmountAfterHomeItem,
+  focusNextInBothPayHome: actions.focusNextInBothPayHome,
+  focusAmountAfterTripItem: actions.focusAmountAfterTripItem,
+  startTripLotteryDraw,
+  setTripLotteryKeepInPool,
+  resetTripLotteryPool,
+  toggleTripLotteryPanel,
+  removeFromTripLotteryPool,
+  addToTripLotteryPoolFromInput,
+  addToTripLotteryPoolFromSelect,
 });

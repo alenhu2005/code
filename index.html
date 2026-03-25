@@ -37,16 +37,15 @@
 
   <!-- Toast -->
   <div id="toast-container"></div>
-  <div id="update-badge" style="display:none;position:fixed;top:12px;left:50%;transform:translateX(-50%);
-    background:#1d4ed8;color:#fff;border-radius:99px;padding:5px 14px;font-size:12px;font-weight:600;
-    z-index:600;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.2)">
-    ✦ 資料已更新
+  <div id="update-badge" class="update-badge" role="status" aria-live="polite">
+    <span class="update-badge-dot" aria-hidden="true"></span>
+    資料已更新
   </div>
 
   <!-- Edit record dialog -->
   <div id="edit-overlay" onclick="if(event.target===this)closeEditRecord()">
-    <div class="edit-dialog">
-      <h3>編輯紀錄</h3>
+    <div class="edit-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-dialog-title">
+      <h3 id="edit-dialog-title">編輯紀錄</h3>
       <div class="form-group">
         <label class="form-label">日期</label>
         <input type="date" id="edit-date" class="form-input">
@@ -79,7 +78,7 @@
 
   <!-- Confirm dialog -->
   <div id="dialog-overlay" onclick="if(event.target===this)cancelDialog()">
-    <div class="dialog">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
       <h3 id="dlg-title"></h3>
       <p id="dlg-desc"></p>
       <div class="dialog-actions">
@@ -91,8 +90,8 @@
 
   <!-- Backup sheet -->
   <div id="backup-overlay" onclick="if(event.target===this)closeBackupMenu()">
-    <div class="edit-dialog backup-dialog" onclick="event.stopPropagation()">
-      <h3>備份與匯出</h3>
+    <div class="edit-dialog backup-dialog" role="dialog" aria-modal="true" aria-labelledby="backup-dialog-title" onclick="event.stopPropagation()">
+      <h3 id="backup-dialog-title">備份與匯出</h3>
       <p class="backup-hint">可讀版含中文欄與摘要；還原試算表或與後端對接請用原始格式。</p>
       <div class="backup-sheet-actions">
         <button type="button" class="btn btn-primary btn-full" onclick="exportBackupCSV(); closeBackupMenu()">下載可讀版 CSV</button>
@@ -150,25 +149,35 @@
             <svg id="home-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
           </button>
         </div>
-        <div class="collapsible open card-body" id="home-form">
+        <div id="home-form" class="collapsible-panel is-open">
+          <div class="collapsible-panel__inner card-body">
           <div class="form-group">
             <label class="form-label">消費項目</label>
-            <input type="text" id="h-item" class="form-input" placeholder="例如：晚餐、衛生紙、電費">
+            <input type="text" id="h-item" class="form-input" placeholder="例如：晚餐、衛生紙、電費"
+              enterkeyhint="next" onkeydown="focusAmountAfterHomeItem(event)">
           </div>
           <div class="form-group" id="h-amount-group">
             <label class="form-label">總金額 (NT$)</label>
-            <input type="number" id="h-amount" class="form-input" placeholder="0" min="0" step="1">
+            <input type="text" id="h-amount" class="form-input form-input-amount" placeholder="0"
+              lang="en" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"
+              inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="總金額">
           </div>
           <div class="form-group" id="h-both-group" style="display:none">
             <label class="form-label">各自出多少？</label>
             <div style="display:flex;gap:8px">
               <div style="flex:1">
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">胡出 (NT$)</div>
-                <input type="number" id="h-paidhu" class="form-input" placeholder="0" min="0" step="1">
+                <input type="text" id="h-paidhu" class="form-input form-input-amount" placeholder="0"
+                  lang="en" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"
+                  inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" aria-label="胡出金額"
+                  onkeydown="focusNextInBothPayHome(event)">
               </div>
               <div style="flex:1">
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">詹出 (NT$)</div>
-                <input type="number" id="h-paidzhan" class="form-input" placeholder="0" min="0" step="1">
+                <input type="text" id="h-paidzhan" class="form-input form-input-amount" placeholder="0"
+                  lang="en" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"
+                  inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" aria-label="詹出金額"
+                  onkeydown="focusNextInBothPayHome(event)">
               </div>
             </div>
           </div>
@@ -193,6 +202,7 @@
             <input type="text" id="h-note" class="form-input" placeholder="例如：幫詹墊的、電費 3 月份">
           </div>
           <button class="btn btn-primary btn-full" id="h-submit" onclick="submitDailyRecord()">記起來</button>
+          </div>
         </div>
       </div>
 
@@ -277,7 +287,12 @@
       </button>
       <h1 id="detail-name">行程</h1>
       <div class="header-meta" id="detail-count"></div>
+      <button type="button" id="trip-lottery-trigger" class="header-icon-btn trip-lottery-trigger" onclick="toggleTripLotteryPanel(event)" title="抽籤" aria-label="抽籤" aria-expanded="false" aria-controls="trip-lottery-popover" style="display:none">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 18c-.83 0-1.5-.67-1.5-1.5S6.67 15 7.5 15s1.5.67 1.5 1.5S8.33 18 7.5 18zm0-9C6.67 9 6 8.33 6 7.5S6.67 6 7.5 6 9 6.67 9 7.5 8.33 9 7.5 9zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-9c-.83 0-1.5-.67-1.5-1.5S15.67 6 16.5 6s1.5.67 1.5 1.5S17.33 9 16.5 9z"/></svg>
+      </button>
+      <div id="trip-header-actions" class="header-tools"></div>
     </header>
+    <div id="trip-lottery-popover" class="trip-lottery-popover" hidden></div>
     <div class="main">
 
       <!-- Members -->
@@ -302,17 +317,6 @@
         <div id="settlement-body"></div>
       </div>
 
-      <!-- Trip stats -->
-      <div class="card" id="trip-payer-card">
-        <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
-            出遊統計
-          </div>
-        </div>
-        <div id="trip-payer-stats"></div>
-      </div>
-
       <!-- Archive bar -->
       <div id="trip-archive-bar"></div>
 
@@ -327,21 +331,26 @@
             <svg id="detail-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
           </button>
         </div>
-        <div class="collapsible open card-body" id="detail-form">
+        <div id="detail-form" class="collapsible-panel is-open">
+          <div class="collapsible-panel__inner card-body">
           <div class="form-group">
             <label class="form-label">消費項目</label>
-            <input type="text" id="d-item" class="form-input" placeholder="例如：晚餐、門票、計程車">
+            <input type="text" id="d-item" class="form-input" placeholder="例如：晚餐、門票、計程車"
+              enterkeyhint="next" onkeydown="focusAmountAfterTripItem(event)">
           </div>
           <div class="form-group" id="d-amount-group">
             <label class="form-label">總金額 (NT$)</label>
-            <input type="number" id="d-amount" class="form-input" placeholder="0" min="0" step="1" oninput="updatePerPerson()">
+            <input type="text" id="d-amount" class="form-input form-input-amount" placeholder="0"
+              lang="en" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"
+              inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" aria-label="總金額"
+              oninput="updatePerPerson()">
           </div>
           <div class="form-group" id="d-multipay-group" style="display:none">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
               各自出了多少？
               <button type="button" onclick="addPayerRow()" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;font-weight:600">＋ 新增</button>
             </label>
-            <div id="d-payers-list" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div id="d-payers-list" class="payer-list"></div>
             <div id="d-multipay-total" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
           </div>
           <div class="form-group">
@@ -354,7 +363,7 @@
               <button type="button" id="d-multipay-toggle" onclick="toggleMultiPay()" style="background:none;border:1px solid var(--border);border-radius:99px;color:var(--text-muted);font-size:11px;cursor:pointer;padding:2px 8px;font-weight:500">多人出款</button>
             </label>
             <div id="d-paidby-group">
-              <select id="d-paidby" class="form-select"></select>
+              <div id="d-paidby-toggles" class="btn-group btn-group-payer" role="group" aria-label="誰先付錢"></div>
             </div>
           </div>
           <div class="form-group">
@@ -363,6 +372,7 @@
             <div id="d-per-person" class="per-person-note"></div>
           </div>
           <button class="btn btn-primary btn-full" id="d-submit" onclick="submitTripExpense()">記起來</button>
+          </div>
         </div>
       </div>
 
@@ -377,7 +387,30 @@
         </div>
         <div class="card" id="detail-expenses"></div>
       </div>
+
+      <!-- Trip stats (below 歷史紀錄) -->
+      <div class="card" id="trip-payer-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+            出遊統計
+          </div>
+          <button type="button" class="toggle-btn" onclick="toggleCollapsible('trip-stats-body','trip-stats-toggle-icon')" aria-expanded="false" aria-controls="trip-stats-body">
+            <svg id="trip-stats-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+          </button>
+        </div>
+        <div id="trip-stats-body" class="collapsible-panel">
+          <div class="collapsible-panel__inner trip-stats-panel-inner">
+            <div id="trip-payer-stats"></div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <div id="sync-status-bar" class="sync-status-bar" role="status" aria-live="polite">
+    <span class="sync-status-badge"></span>
+    <span class="sync-status-text"></span>
   </div>
 
   <!-- Bottom nav -->

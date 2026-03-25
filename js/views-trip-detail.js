@@ -1,11 +1,84 @@
 import { appState } from './state.js';
-import { getTripById, getTripExpenses } from './data.js';
+import { getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows } from './data.js';
 import { computeSettlements } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 import { navigate } from './navigation.js';
 import { renderTripStatsCard } from './trip-stats.js';
+import { renderTripLotteryCard } from './trip-lottery.js';
+
+let tripSettleAnimGen = 0;
+
+function tripPrefersReducedMotion() {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function playTripSettlementAnimations() {
+  const body = document.getElementById('settlement-body');
+  if (!body) return;
+  tripSettleAnimGen++;
+  const gen = tripSettleAnimGen;
+  const rows = body.querySelectorAll('.settlement-row--visual');
+  if (rows.length === 0) return;
+
+  const applyFinal = () => {
+    rows.forEach(row => {
+      const t = parseInt(row.getAttribute('data-amt') || '0', 10);
+      const amtEl = row.querySelector('[data-settle-amt]');
+      const cover = row.querySelector('.settlement-compare-cover');
+      const pct = parseInt(row.getAttribute('data-bar-pct') || '0', 10);
+      if (amtEl) amtEl.textContent = 'NT$' + t.toLocaleString();
+      if (cover) cover.style.width = `${100 - pct}%`;
+    });
+  };
+
+  if (tripPrefersReducedMotion()) {
+    applyFinal();
+    return;
+  }
+
+  rows.forEach(row => {
+    const amtEl = row.querySelector('[data-settle-amt]');
+    const cover = row.querySelector('.settlement-compare-cover');
+    if (amtEl) amtEl.textContent = 'NT$0';
+    if (cover) cover.style.width = '100%';
+  });
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (gen !== tripSettleAnimGen) return;
+      rows.forEach((row, idx) => {
+        window.setTimeout(() => {
+          if (gen !== tripSettleAnimGen) return;
+          const cover = row.querySelector('.settlement-compare-cover');
+          const pct = parseInt(row.getAttribute('data-bar-pct') || '0', 10);
+          if (cover) cover.style.width = `${100 - pct}%`;
+        }, 45 + idx * 85);
+      });
+      rows.forEach((row, idx) => {
+        const target = parseInt(row.getAttribute('data-amt') || '0', 10);
+        const amtEl = row.querySelector('[data-settle-amt]');
+        if (!amtEl || target <= 0) return;
+        const delay = 55 + idx * 85;
+        const duration = 700;
+        window.setTimeout(() => {
+          if (gen !== tripSettleAnimGen) return;
+          const start = performance.now();
+          function frame(now) {
+            if (gen !== tripSettleAnimGen) return;
+            const u = Math.min(1, (now - start) / duration);
+            const eased = 1 - (1 - u) ** 3;
+            const v = Math.round(target * eased);
+            amtEl.textContent = 'NT$' + v.toLocaleString();
+            if (u < 1) requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+        }, delay);
+      });
+    });
+  });
+}
 
 function tripExpenseHTML(e, totalMembers) {
   const label = e.splitAmong.length === totalMembers ? '均分' : e.splitAmong.join('、');
@@ -109,7 +182,7 @@ export function renderSplitChips(members) {
   updatePerPerson();
 }
 
-function renderSettlement(members, expenses) {
+function renderSettlement(members, expenses, trip) {
   const bar = document.getElementById('settlement-bar');
   const body = document.getElementById('settlement-body');
   const active = expenses.filter(e => !e._voided);
@@ -145,7 +218,10 @@ function renderSettlement(members, expenses) {
     return;
   }
 
-  const settlements = computeSettlements(members, active);
+  const adjustments = trip
+    ? getTripSettlementAdjustmentsFromRows(trip.id, appState.allRows)
+    : [];
+  const settlements = computeSettlements(members, active, adjustments);
   const total = active.reduce((s, e) => s + e.amount, 0);
   const subNote = voidCount > 0 ? ` · 已排除撤回 ${voidCount} 筆` : '';
 
@@ -166,22 +242,56 @@ function renderSettlement(members, expenses) {
 
   bar.className = 'balance-bar';
   bar.style.background = '#f59e0b';
-  body.innerHTML = `<div class="settlement-list">
-    <div class="settlement-header">
-      <span>誰要付給誰</span>
-      <span style="font-size:11px">有效 ${active.length} 筆 · NT$${Math.round(total)}${subNote}</span>
+  const maxPay = Math.max(...settlements.map(s => s.amount), 1);
+  const canSettle = trip && !trip._closed;
+  const rowsHtml = settlements
+    .map(s => {
+      const amt = Math.round(s.amount);
+      const barPct = Math.round((s.amount / maxPay) * 100);
+      const coverW = tripPrefersReducedMotion() ? 100 - barPct : 100;
+      const a = esc((s.from || '?').charAt(0));
+      const b = esc((s.to || '?').charAt(0));
+      const repayBtn = canSettle
+        ? `<button type="button" class="settle-btn settle-btn--inline" data-from="${esc(s.from)}" data-to="${esc(
+            s.to,
+          )}" onclick="recordTripSettlementOneAction(this)">記錄還款</button>`
+        : '';
+      return `<div class="settlement-row settlement-row--visual" data-amt="${amt}" data-bar-pct="${barPct}">
+      <div class="settlement-flow">
+        <span class="settlement-pill settlement-pill--payer" title="${esc(s.from)}">${a}</span>
+        <span class="settlement-names">${esc(s.from)}</span>
+        <span class="settlement-arrow" aria-hidden="true">→</span>
+        <span class="settlement-pill settlement-pill--payee" title="${esc(s.to)}">${b}</span>
+        <span class="settlement-names">${esc(s.to)}</span>
+        <div class="settlement-flow-tail">
+        <span class="settlement-amount" data-settle-amt>NT$${tripPrefersReducedMotion() ? amt.toLocaleString() : '0'}</span>
+        ${repayBtn}
+        </div>
+      </div>
+      <div class="settlement-compare-track settlement-compare-track--sharedgrad" aria-hidden="true">
+        <div class="settlement-compare-grad"></div>
+        <div class="settlement-compare-cover" style="width:${coverW}%"></div>
+      </div>
+    </div>`;
+    })
+    .join('');
+  body.innerHTML = `<div class="settlement-collapse">
+    <button type="button" class="settlement-collapse-trigger" onclick="toggleCollapsible('settlement-flows-panel','settlement-flows-icon')" aria-expanded="true">
+      <div class="settlement-collapse-trigger__main">
+        <span class="settlement-collapse-title">誰要付給誰</span>
+        <span class="settlement-header-meta">有效 ${active.length} 筆 · NT$${Math.round(total)}${subNote}</span>
+      </div>
+      <span class="settlement-collapse-chevron" aria-hidden="true">
+        <svg id="settlement-flows-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+      </span>
+    </button>
+    <div id="settlement-flows-panel" class="collapsible-panel is-open">
+      <div class="collapsible-panel__inner settlement-collapse-panel-inner">
+        <div class="settlement-list settlement-list--visual">${rowsHtml}</div>
+      </div>
     </div>
-    ${settlements
-      .map(
-        s => `<div class="settlement-row">
-      <span class="settlement-name">${esc(s.from)}</span>
-      <span class="settlement-arrow">→</span>
-      <span class="settlement-name">${esc(s.to)}</span>
-      <span class="settlement-amount">NT$${Math.round(s.amount)}</span>
-    </div>`,
-      )
-      .join('')}
   </div>`;
+  playTripSettlementAnimations();
 }
 
 function updatePerPerson() {
@@ -225,26 +335,37 @@ export function renderTripDetail() {
     voidExpN > 0 ? `有效 ${activeExp.length} 筆 · 共 ${expenses.length} 筆` : `${activeExp.length} 筆`;
 
   renderDetailMemberChips(trip.members);
+  renderTripLotteryCard(trip);
 
-  const sel = document.getElementById('d-paidby');
-  const prev = sel.value;
-  sel.innerHTML = trip.members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
-  if (trip.members.includes(prev)) sel.value = prev;
+  if (!appState.detailPaidBy || !trip.members.includes(appState.detailPaidBy)) {
+    appState.detailPaidBy = trip.members[0] || '';
+  }
+  const paidWrap = document.getElementById('d-paidby-toggles');
+  if (paidWrap) {
+    paidWrap.innerHTML = trip.members
+      .map(
+        m =>
+          `<button type="button" class="btn-toggle${m === appState.detailPaidBy ? ' active' : ''}" data-member="${esc(m)}" onclick="setDetailPaidBy(${jqAttr(m)})">${esc(m)}</button>`,
+      )
+      .join('');
+  }
 
   appState.detailSplitAmong = appState.detailSplitAmong.filter(m => trip.members.includes(m));
   if (appState.detailSplitAmong.length === 0) appState.detailSplitAmong = [...trip.members];
   renderSplitChips(trip.members);
 
-  renderSettlement(trip.members, expenses);
+  renderSettlement(trip.members, expenses, trip);
 
   const payerEl = document.getElementById('trip-payer-stats');
   if (payerEl) {
     payerEl.innerHTML = renderTripStatsCard(trip.members, expenses);
   }
 
+  const headerActions = document.getElementById('trip-header-actions');
   const archiveBar = document.getElementById('trip-archive-bar');
   const addCard = document.getElementById('add-expense-card');
   if (trip._closed) {
+    if (headerActions) headerActions.innerHTML = '';
     archiveBar.innerHTML = `<div class="trip-closed-bar">
       <div class="trip-closed-bar-note">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;flex-shrink:0"><path d="M20 6h-2.18c.07-.44.18-.88.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .12.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .12-.11.56-.18 1h-3.64C12.11 5.56 12 5.12 12 5c0-1.1.9-2 2-2zm0 10l-4-4 1.41-1.41L14 10.17l4.59-4.58L20 7l-6 6z"/></svg>
@@ -257,12 +378,13 @@ export function renderTripDetail() {
     </div>`;
     addCard.style.display = 'none';
   } else {
-    archiveBar.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:0">
-      <button class="btn btn-ghost btn-sm" style="color:var(--text-muted);font-size:12px;gap:5px" onclick='closeTripAction(${jq(trip.id)})'>
+    if (headerActions) {
+      headerActions.innerHTML = `<button type="button" class="btn btn-ghost btn-sm" style="color:var(--text-muted);font-size:12px;gap:5px;flex-shrink:0" onclick='closeTripAction(${jq(trip.id)})'>
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M20 6h-2.18c.07-.44.18-.88.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .12.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .12-.11.56-.18 1h-3.64C12.11 5.56 12 5.12 12 5c0-1.1.9-2 2-2zm0 10l-4-4 1.41-1.41L14 10.17l4.59-4.58L20 7l-6 6z"/></svg>
         結束行程
-      </button>
-    </div>`;
+      </button>`;
+    }
+    archiveBar.innerHTML = '';
     addCard.style.display = '';
   }
 
