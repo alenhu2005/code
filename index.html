@@ -845,6 +845,8 @@ function esc(s) {
 
 /** Safe embedding of values inside inline onclick="" (avoids esc() + HTML entity decode breaking JS strings). */
 function jq(v) { return JSON.stringify(v); }
+/** Use inside onclick="..." so JSON double-quotes don't break the HTML attribute. */
+function jqAttr(v) { return jq(v).replace(/"/g, '&quot;'); }
 
 function parseArr(s) { try { const r = JSON.parse(s); return Array.isArray(r) ? r : []; } catch { return []; } }
 
@@ -1327,11 +1329,11 @@ function dailyRecordHTML(r, runBal) {
   const isHu = r.paidBy === '胡';
   const a = parseFloat(r.amount) || 0;
   const voidBtn = r._voided ? '' :
-    `<button class="record-delete" title="撤回" onclick="voidDailyRecord(${jq(r.id)})">
+    `<button class="record-delete" title="撤回" onclick='voidDailyRecord(${jq(r.id)})'>
       <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
     </button>`;
 
-  const clickAttr = r._voided ? '' : `onclick="openEditRecordById(${jq(r.id)},false)" style="cursor:pointer" title="點擊編輯"`;
+  const clickAttr = r._voided ? '' : `onclick='openEditRecordById(${jq(r.id)},false)' style="cursor:pointer" title="點擊編輯"`;
 
   if (r.type === 'settlement') {
     return `<div class="record-item is-settlement${r._voided?' is-voided':''}">
@@ -1419,11 +1421,11 @@ function renderTrips() {
 
 function tripCardHTML(t) {
   const deleteBtn = t._closed ? '' :
-    `<button class="btn btn-ghost btn-icon btn-danger-ghost" title="刪除" onclick="event.stopPropagation();deleteTripAction(${jq(t.id)})">
+    `<button class="btn btn-ghost btn-icon btn-danger-ghost" title="刪除" onclick='event.stopPropagation();deleteTripAction(${jq(t.id)})'>
       <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
     </button>`;
   const closedBadge = t._closed ? `<span class="badge" style="background:var(--bg-tertiary);color:var(--text-muted);font-size:10px">已結束</span>` : '';
-  return `<div class="trip-card${t._closed?' is-voided':''}" onclick="navigate('tripDetail',${jq(t.id)})">
+  return `<div class="trip-card${t._closed?' is-voided':''}" onclick='navigate("tripDetail",${jq(t.id)})'>
     <div class="trip-icon" style="${t._closed?'opacity:.45':''}"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
     <div class="trip-info">
       <div class="trip-name" style="${t._closed?'color:var(--text-muted)':''}"><span>${esc(t.name)}</span>${closedBadge}</div>
@@ -1613,12 +1615,12 @@ function renderTripDetail() {
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;flex-shrink:0"><path d="M20 6h-2.18c.07-.44.18-.88.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .12.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .12-.11.56-.18 1h-3.64C12.11 5.56 12 5.12 12 5c0-1.1.9-2 2-2zm0 10l-4-4 1.41-1.41L14 10.17l4.59-4.58L20 7l-6 6z"/></svg>
         此行程已結束，僅供瀏覽
       </div>
-      <button class="btn btn-outline btn-sm" onclick="reopenTripAction(${jq(trip.id)})">重新開啟</button>
+      <button class="btn btn-outline btn-sm" onclick='reopenTripAction(${jq(trip.id)})'>重新開啟</button>
     </div>`;
     addCard.style.display = 'none';
   } else {
     archiveBar.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:0">
-      <button class="btn btn-ghost btn-sm" style="color:var(--text-muted);font-size:12px;gap:5px" onclick="closeTripAction(${jq(trip.id)})">
+      <button class="btn btn-ghost btn-sm" style="color:var(--text-muted);font-size:12px;gap:5px" onclick='closeTripAction(${jq(trip.id)})'>
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M20 6h-2.18c.07-.44.18-.88.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .12.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .12-.11.56-.18 1h-3.64C12.11 5.56 12 5.12 12 5c0-1.1.9-2 2-2zm0 10l-4-4 1.41-1.41L14 10.17l4.59-4.58L20 7l-6 6z"/></svg>
         結束行程
       </button>
@@ -1639,7 +1641,7 @@ function renderDetailMemberChips(members) {
   const el = document.getElementById('detail-member-chips');
   el.innerHTML = members.map(m => {
     const removeBtn = members.length > 2
-      ? `<button class="member-chip-remove" title="移除" onclick="removeMemberAction(${jq(m)})">
+      ? `<button class="member-chip-remove" title="移除" onclick="removeMemberAction(${jqAttr(m)})">
            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
          </button>`
       : '';
@@ -1651,7 +1653,7 @@ function renderSplitChips(members) {
   const el = document.getElementById('d-split-chips');
   el.innerHTML = members.map(m => {
     const active = detailSplitAmong.includes(m);
-    return `<button class="split-chip ${active?'active':''}" onclick="toggleSplit(${jq(m)})">${esc(m)}</button>`;
+    return `<button class="split-chip ${active?'active':''}" onclick="toggleSplit(${jqAttr(m)})">${esc(m)}</button>`;
   }).join('');
   updatePerPerson();
 }
@@ -1713,10 +1715,10 @@ function tripExpenseHTML(e, totalMembers) {
   const label  = e.splitAmong.length === totalMembers ? '均分' : e.splitAmong.join('、');
   const noteEl = e.note ? `<div class="record-note">${esc(e.note)}</div>` : '';
   const voidBtn = e._voided ? '' :
-    `<button class="record-delete" title="撤回" onclick="voidTripExpenseAction(${jq(e.id)})">
+    `<button class="record-delete" title="撤回" onclick='voidTripExpenseAction(${jq(e.id)})'>
       <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
     </button>`;
-  const clickAttr = e._voided ? '' : `onclick="openEditRecordById(${jq(e.id)},true)" style="cursor:pointer" title="點擊編輯"`;
+  const clickAttr = e._voided ? '' : `onclick='openEditRecordById(${jq(e.id)},true)' style="cursor:pointer" title="點擊編輯"`;
 
   if (e.payers && Array.isArray(e.payers)) {
     const payerStr = e.payers.map(p => `${esc(p.name)} NT$${Math.round(p.amount)}`).join(' ＋ ');
@@ -1962,7 +1964,7 @@ function removeNewTripMember(name) {
 function renderNewTripMemberChips() {
   document.getElementById('new-trip-member-chips').innerHTML = newTripMembers.map(m =>
     `<span class="member-chip">${esc(m)}
-      <button class="member-chip-remove" onclick="removeNewTripMember(${jq(m)})">
+      <button class="member-chip-remove" onclick="removeNewTripMember(${jqAttr(m)})">
         <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
       </button>
     </span>`
