@@ -105,6 +105,36 @@ function tryRestoreSessionFromStorage() {
   return false;
 }
 
+/**
+ * 手機觸控時以 pointerdown 立即導覽並 preventDefault，避免延遲的 click／需點兩次；
+ * 滑鼠與鍵盤仍依 index.html 的 onclick。nav-btn--pressed 對應 :active 的小縮放。
+ */
+function initBottomNavTouchNavigate() {
+  const pairs = [
+    ['nav-home', 'home'],
+    ['nav-trips', 'trips'],
+    ['nav-analysis', 'analysis'],
+  ];
+  for (const [id, page] of pairs) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const clearPress = () => el.classList.remove('nav-btn--pressed');
+    el.addEventListener(
+      'pointerdown',
+      e => {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        e.preventDefault();
+        el.classList.add('nav-btn--pressed');
+        navigate(page);
+      },
+      { passive: false },
+    );
+    el.addEventListener('pointerup', clearPress);
+    el.addEventListener('pointercancel', clearPress);
+    el.addEventListener('pointerleave', clearPress);
+  }
+}
+
 export async function initApp() {
   updateThemeIcon();
   loadCache();
@@ -162,4 +192,6 @@ export async function initApp() {
       clearTimeout(appState._pollTimer);
     }
   });
+
+  initBottomNavTouchNavigate();
 }

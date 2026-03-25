@@ -652,6 +652,16 @@
     }
     .form-select:focus { border-color: var(--primary); }
 
+    /* 窄螢幕：輸入／選單字級 ≥16px，避免 iOS Safari 等 focus 時自動放大整頁 */
+    @media (max-width: 640px) {
+      .form-input,
+      .form-select,
+      .trip-lottery-add-input,
+      .trip-lottery-add-select {
+        font-size: 16px;
+      }
+    }
+
     /* 多人出款：各自出了多少（按鈕選人 + 金額） */
     .payer-list {
       display: flex;
@@ -1196,12 +1206,15 @@
       background: none; border: none; cursor: pointer;
       font-size: 10px; font-weight: 500; color: var(--text-muted);
       transition: color 0.22s ease, transform 0.15s var(--ease-soft);
-      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .nav-btn svg { width: 22px; height: 22px; fill: currentColor; transition: transform 0.22s var(--ease-soft); }
     .nav-btn.active { color: var(--primary); }
     .nav-btn.active svg { transform: translateY(-1px); }
-    .nav-btn:active { transform: scale(0.94); }
+    .nav-btn:active,
+    .nav-btn.nav-btn--pressed {
+      transform: scale(0.94);
+    }
 
     /* ── Sync status (above bottom nav) ── */
     #sync-status-bar {
