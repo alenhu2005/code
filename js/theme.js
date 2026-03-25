@@ -9,4 +9,5 @@ export function toggleTheme() {
   const dark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('theme', dark ? 'dark' : 'light');
   updateThemeIcon();
+  import('./render-registry.js').then(m => m.render());
 }

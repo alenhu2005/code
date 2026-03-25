@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows, getAvatarUrlByMemberName } from './data.js';
+import { getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows, getAvatarUrlByMemberName, getKnownMemberNames, getMemberColor } from './data.js';
 import { computeSettlements } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr } from './utils.js';
@@ -85,6 +85,27 @@ function playTripSettlementAnimations() {
   });
 }
 
+function tripRecordAvatar(name, cssClass) {
+  const url = getAvatarUrlByMemberName(name);
+  const color = getMemberColor(name);
+  if (url) {
+    return `<div class="record-avatar ${cssClass}"><img class="record-avatar-img" src="${url}" alt="${esc(name)}"></div>`;
+  }
+  if (cssClass === 'multi' || cssClass === 'split' || cssClass === 'settle') {
+    return `<div class="record-avatar ${cssClass}">${esc(name)}</div>`;
+  }
+  return `<div class="record-avatar ${cssClass}" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</div>`;
+}
+
+function memberAvatarPill(name, cssClass) {
+  const url = getAvatarUrlByMemberName(name);
+  const color = getMemberColor(name);
+  if (url) {
+    return `<span class="${cssClass}" title="${esc(name)}"><img src="${url}" alt="${esc(name)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block"></span>`;
+  }
+  return `<span class="${cssClass}" style="background:${color.bg};color:${color.fg};border-color:${color.fg}30" title="${esc(name)}">${esc(name.charAt(0))}</span>`;
+}
+
 function tripExpenseHTML(e, totalMembers) {
   const label = e.splitAmong.length === totalMembers ? '均分' : e.splitAmong.join('、');
   const noteEl = e.note ? `<div class="record-note">${esc(e.note)}</div>` : '';
@@ -99,7 +120,7 @@ function tripExpenseHTML(e, totalMembers) {
     const payerStr = e.payers.map(p => `${esc(p.name)} NT$${Math.round(p.amount)}`).join(' ＋ ');
     const perPerson = Math.round(e.amount / (e.splitAmong.length || 1));
     return `<div class="record-item${e._voided ? ' is-voided' : ''}">
-      <div class="record-avatar multi">多</div>
+      ${tripRecordAvatar('多', 'multi')}
       <div class="record-info" ${clickAttr}>
         <div class="record-name">
           <span class="record-name-text">${esc(e.item)}</span>
@@ -115,7 +136,7 @@ function tripExpenseHTML(e, totalMembers) {
   }
 
   return `<div class="record-item${e._voided ? ' is-voided' : ''}">
-    <div class="record-avatar me">${esc(e.paidBy.charAt(0))}</div>
+    ${tripRecordAvatar(e.paidBy, 'me')}
     <div class="record-info" ${clickAttr}>
       <div class="record-name">
         <span class="record-name-text">${esc(e.item)}</span>
@@ -166,9 +187,10 @@ export function renderDetailMemberChips(members) {
   el.innerHTML = members
     .map(m => {
       const avatarUrl = getAvatarUrlByMemberName(m);
+      const color = getMemberColor(m);
       const avatarHtml = avatarUrl
         ? `<img class="member-chip-avatar" src="${avatarUrl}" alt="${esc(m)} 頭像">`
-        : `<span class="member-chip-avatar member-chip-avatar--fallback" aria-hidden="true">${esc(m.charAt(0))}</span>`;
+        : `<span class="member-chip-avatar member-chip-avatar--fallback" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${esc(m.charAt(0))}</span>`;
 
       const removeBtn =
         members.length > 2
@@ -176,23 +198,30 @@ export function renderDetailMemberChips(members) {
            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
          </button>`
           : '';
-      return `
-        <span class="member-chip">
+      return `<span class="member-chip">
           ${avatarHtml}
           <span class="member-chip-name">${esc(m)}</span>
-          <button
-            type="button"
-            class="member-chip-avatar-btn"
-            title="上傳/更換頭像"
-            aria-label="上傳/更換頭像"
-            onclick="openAvatarPickerForMember(${jqAttr(m)})"
-          >
-            <svg viewBox="0 0 24 24"><path d="M9 7l1-2h4l1 2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3zm3 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
-          </button>
           ${removeBtn}
         </span>`;
     })
     .join('');
+}
+
+function renderDetailKnownMembers(trip) {
+  const el = document.getElementById('detail-known-members');
+  if (!el) return;
+  const known = getKnownMemberNames();
+  const available = known.filter(n => !trip.members.includes(n));
+  if (available.length === 0 || trip._closed) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="known-member-bar">
+    <span class="known-member-bar-label">快速加入</span>
+    ${available.map(n => {
+      const c = getMemberColor(n);
+      return `<button type="button" class="known-member-bar-btn" onclick="addDetailMemberByName(${jqAttr(n)})">
+        <span class="known-member-bar-dot" style="background:${c.fg}">${esc(n.charAt(0))}</span>${esc(n)}
+      </button>`;
+    }).join('')}
+  </div>`;
 }
 
 export function renderSplitChips(members) {
@@ -273,19 +302,17 @@ function renderSettlement(members, expenses, trip) {
       const amt = Math.round(s.amount);
       const barPct = Math.round((s.amount / maxPay) * 100);
       const coverW = tripPrefersReducedMotion() ? 100 - barPct : 100;
-      const a = esc((s.from || '?').charAt(0));
-      const b = esc((s.to || '?').charAt(0));
       const repayBtn = canSettle
         ? `<button type="button" class="settle-btn settle-btn--inline" data-from="${esc(s.from)}" data-to="${esc(
             s.to,
-          )}" onclick="recordTripSettlementOneAction(this)">記錄還款</button>`
+          )}" onclick="recordTripSettlementOneAction(this)">還款</button>`
         : '';
       return `<div class="settlement-row settlement-row--visual" data-amt="${amt}" data-bar-pct="${barPct}">
       <div class="settlement-flow">
-        <span class="settlement-pill settlement-pill--payer" title="${esc(s.from)}">${a}</span>
+        ${memberAvatarPill(s.from, 'settlement-pill settlement-pill--payer')}
         <span class="settlement-names">${esc(s.from)}</span>
         <span class="settlement-arrow" aria-hidden="true">→</span>
-        <span class="settlement-pill settlement-pill--payee" title="${esc(s.to)}">${b}</span>
+        ${memberAvatarPill(s.to, 'settlement-pill settlement-pill--payee')}
         <span class="settlement-names">${esc(s.to)}</span>
         <div class="settlement-flow-tail">
         <span class="settlement-amount" data-settle-amt>NT$${tripPrefersReducedMotion() ? amt.toLocaleString() : '0'}</span>
@@ -346,7 +373,7 @@ function updateMultiPayTotal() {
 export function renderTripDetail() {
   const trip = getTripById(appState.currentTripId);
   if (!trip) {
-    navigate('trips');
+    if (appState.currentPage === 'tripDetail') navigate('trips');
     return;
   }
   const expenses = getTripExpenses(appState.currentTripId);
@@ -359,6 +386,7 @@ export function renderTripDetail() {
     voidExpN > 0 ? `有效 ${activeExp.length} 筆 · 共 ${expenses.length} 筆` : `${activeExp.length} 筆`;
 
   renderDetailMemberChips(trip.members);
+  renderDetailKnownMembers(trip);
   renderTripLotteryCard(trip);
 
   if (!appState.detailPaidBy || !trip.members.includes(appState.detailPaidBy)) {

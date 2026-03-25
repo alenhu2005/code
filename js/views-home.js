@@ -1,9 +1,9 @@
 import { USER_A, USER_B } from './config.js';
 import { appState } from './state.js';
-import { getDailyRecords } from './data.js';
+import { getDailyRecords, getAvatarUrlByMemberName } from './data.js';
 import { computeBalance } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
-import { esc, jq, prefersReducedMotion } from './utils.js';
+import { esc, jq, jqAttr, prefersReducedMotion } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 
 let balanceCountGen = 0;
@@ -205,6 +205,17 @@ function runningHTML(val) {
   return `<div class="record-running neg">${USER_A}欠 ${rounded}</div>`;
 }
 
+function recordAvatarHTML(name, cssClass, clickable = false) {
+  const url = getAvatarUrlByMemberName(name);
+  const inner = url
+    ? `<img class="record-avatar-img" src="${url}" alt="${esc(name)}">`
+    : esc(name);
+  if (clickable) {
+    return `<button type="button" class="record-avatar ${cssClass} record-avatar-clickable" onclick="openAvatarPickerForMember(${jqAttr(name)})" title="${esc(name)} — 點擊更換頭像">${inner}</button>`;
+  }
+  return `<div class="record-avatar ${cssClass}">${inner}</div>`;
+}
+
 function dailyRecordHTML(r, runBal) {
   const isHu = r.paidBy === USER_A;
   const a = parseFloat(r.amount) || 0;
@@ -241,7 +252,7 @@ function dailyRecordHTML(r, runBal) {
     const zhan = parseFloat(r.paidZhan) || 0;
     const metaDetail = `胡 NT$${Math.round(hu)} ＋ 詹 NT$${Math.round(zhan)}`;
     return `<div class="record-item${r._voided ? ' is-voided' : ''}">
-      <div class="record-avatar split">兩</div>
+      ${recordAvatarHTML('兩', 'split')}
       <div class="record-info" ${clickAttr}>
         <div class="record-name">
           <span class="record-name-text">${esc(r.item)}</span>
@@ -261,7 +272,7 @@ function dailyRecordHTML(r, runBal) {
 
   const label = r.splitMode === '均分' ? '各付一半' : r.splitMode === '只有胡' ? '胡全付' : '詹全付';
   return `<div class="record-item${r._voided ? ' is-voided' : ''}">
-    <div class="record-avatar ${isHu ? 'me' : 'other'}">${esc(r.paidBy)}</div>
+    ${recordAvatarHTML(r.paidBy, isHu ? 'me' : 'other', true)}
     <div class="record-info" ${clickAttr}>
       <div class="record-name">
         <span class="record-name-text">${esc(r.item)}</span>

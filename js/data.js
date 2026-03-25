@@ -123,6 +123,18 @@ export function getTripExpenses(tripId) {
   return getTripExpensesFromRows(tripId, appState.allRows);
 }
 
+export const MEMBER_COLORS = [
+  { id: 'blue',    bg: '#eff6ff', fg: '#3b82f6', darkBg: '#1e3a5f', darkFg: '#60a5fa' },
+  { id: 'emerald', bg: '#ecfdf5', fg: '#10b981', darkBg: '#064e3b', darkFg: '#34d399' },
+  { id: 'amber',   bg: '#fffbeb', fg: '#f59e0b', darkBg: '#78350f', darkFg: '#fbbf24' },
+  { id: 'rose',    bg: '#fff1f2', fg: '#f43f5e', darkBg: '#4c0519', darkFg: '#fb7185' },
+  { id: 'violet',  bg: '#f5f3ff', fg: '#8b5cf6', darkBg: '#2e1065', darkFg: '#a78bfa' },
+  { id: 'sky',     bg: '#f0f9ff', fg: '#0ea5e9', darkBg: '#0c4a6e', darkFg: '#38bdf8' },
+  { id: 'slate',   bg: '#f1f5f9', fg: '#64748b', darkBg: '#1e293b', darkFg: '#94a3b8' },
+];
+
+export const TRIP_COLORS = MEMBER_COLORS;
+
 /**
  * 全域成員頭像（每個成員最多以最後一次上傳為準）
  * @param {string} memberName
@@ -137,6 +149,38 @@ export function getAvatarUrlByMemberName(memberName) {
     }
   }
   return last;
+}
+
+function isDark() {
+  return document.documentElement.classList.contains('dark');
+}
+
+function resolveColor(c) {
+  return isDark() ? { id: c.id, bg: c.darkBg, fg: c.darkFg } : { id: c.id, bg: c.bg, fg: c.fg };
+}
+
+/** @returns {{ id: string, bg: string, fg: string }} */
+export function getMemberColor(memberName) {
+  const name = memberName ?? '';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return resolveColor(MEMBER_COLORS[((hash % MEMBER_COLORS.length) + MEMBER_COLORS.length) % MEMBER_COLORS.length]);
+}
+
+/** @returns {{ id: string, bg: string, fg: string }} */
+export function getTripColor(tripId) {
+  const id = tripId ?? '';
+  let colorId = null;
+  for (const r of appState.allRows) {
+    if (r && r.type === 'trip' && r.action === 'setColor' && r.id === id && r.colorId) {
+      colorId = r.colorId;
+    }
+  }
+  const found = colorId && TRIP_COLORS.find(c => c.id === colorId);
+  if (found) return resolveColor(found);
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return resolveColor(TRIP_COLORS[((hash % TRIP_COLORS.length) + TRIP_COLORS.length) % TRIP_COLORS.length]);
 }
 
 /**
@@ -162,6 +206,50 @@ export function getTripSettlementAdjustmentsFromRows(tripId, allRows) {
       to: r.to,
       amount: parseFloat(r.amount) || 0,
     }));
+}
+
+/**
+ * 收集所有曾出現的成員名稱（行程成員、頭像、日常使用者等）
+ */
+export function getKnownMemberNames() {
+  const names = new Set();
+  const deleted = new Set();
+  const renames = new Map();
+  for (const r of appState.allRows) {
+    if (r.type === 'trip' && r.action === 'add' && r.members) {
+      for (const m of parseArr(r.members)) names.add(m);
+    }
+    if (r.type === 'tripMember' && r.action === 'add' && r.memberName) {
+      names.add(r.memberName);
+    }
+    if (r.type === 'avatar' && r.memberName) {
+      names.add(r.memberName);
+    }
+    if (r.type === 'memberProfile' && r.action === 'delete' && r.memberName) {
+      deleted.add(r.memberName);
+    }
+    if (r.type === 'memberProfile' && r.action === 'restore' && r.memberName) {
+      deleted.delete(r.memberName);
+    }
+    if (r.type === 'memberProfile' && r.action === 'rename' && r.memberName && r.newName) {
+      renames.set(r.memberName, r.newName);
+    }
+  }
+  const result = [];
+  const seen = new Set();
+  for (const n of names) {
+    if (deleted.has(n)) continue;
+    let display = n;
+    let cur = n;
+    const visited = new Set();
+    while (renames.has(cur) && !visited.has(cur)) {
+      visited.add(cur);
+      cur = renames.get(cur);
+      display = cur;
+    }
+    if (!seen.has(display)) { seen.add(display); result.push(display); }
+  }
+  return result;
 }
 
 export { TRIP_TYPES, DAILY_TYPES };

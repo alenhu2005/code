@@ -71,7 +71,7 @@ import { normalizeDate } from './time.js';
  * @typedef {DailyLedgerRow|SettlementLedgerRow|TripLedgerRow|TripMemberLedgerRow|TripExpenseLedgerRow} LedgerRow
  */
 
-export const TRIP_TYPES = new Set(['trip', 'tripMember', 'tripExpense', 'tripSettlement']);
+export const TRIP_TYPES = new Set(['trip', 'tripMember', 'tripExpense', 'tripSettlement', 'avatar', 'memberProfile']);
 export const DAILY_TYPES = new Set(['daily', 'settlement']);
 
 export function isDailyRow(r) {

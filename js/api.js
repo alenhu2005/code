@@ -72,10 +72,20 @@ export function loadCache() {
   }
 }
 
+function stripBase64Fields(r) {
+  if (!r) return r;
+  const out = {};
+  for (const k in r) {
+    const v = r[k];
+    out[k] = typeof v === 'string' && v.startsWith('data:image/') ? '' : v;
+  }
+  return out;
+}
+
 export function saveCache() {
   try {
-    localStorage.setItem(CACHE_DAILY, JSON.stringify(appState.allRows.filter(isDailyRow)));
-    localStorage.setItem(CACHE_TRIP, JSON.stringify(appState.allRows.filter(isTripRow)));
+    localStorage.setItem(CACHE_DAILY, JSON.stringify(appState.allRows.filter(isDailyRow).map(stripBase64Fields)));
+    localStorage.setItem(CACHE_TRIP, JSON.stringify(appState.allRows.filter(isTripRow).map(stripBase64Fields)));
   } catch (e) {
     if (e && e.name === 'QuotaExceededError') {
       import('./utils.js').then(m => m.toast('儲存空間已滿，快取寫入失敗'));
@@ -241,6 +251,9 @@ export function formatPostError(err) {
     return '連線逾時，請檢查網路後再試';
   }
   const msg = String(err.message || '');
+  if (msg.startsWith('GAS_ERR:')) {
+    return '伺服器錯誤：' + msg.slice(8);
+  }
   if (msg.startsWith('HTTP_')) {
     const code = msg.slice(5);
     if (code === '429') return '請求過於頻繁，請稍後再試';
@@ -277,6 +290,11 @@ export async function postRow(data) {
           continue;
         }
         throw new Error('HTTP_' + res.status);
+      }
+      let gasBody = null;
+      try { gasBody = await res.json(); } catch (_) { /* response may not be JSON */ }
+      if (gasBody && gasBody.result === 'error') {
+        throw new Error('GAS_ERR:' + (gasBody.message || '未知伺服器錯誤'));
       }
       saveCache();
       const now = Date.now();

@@ -3,7 +3,7 @@ import { appState } from './state.js';
 import { todayStr } from './time.js';
 import { uid, toast, esc, jqAttr } from './utils.js';
 import { postRow, formatPostError } from './api.js';
-import { getDailyRecords, getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows } from './data.js';
+import { getDailyRecords, getTripById, getTripExpenses, getTripSettlementAdjustmentsFromRows, getKnownMemberNames, getAvatarUrlByMemberName, getMemberColor } from './data.js';
 import { computeBalance, computeSettlements } from './finance.js';
 import { showConfirm } from './dialog.js';
 import { guessCategoryFromItem } from './category.js';
@@ -358,6 +358,7 @@ export function showCreateTripForm() {
   document.getElementById('new-trip-name').value = '';
   document.getElementById('new-member-input').value = '';
   renderNewTripMemberChips();
+  renderKnownMemberPicker();
   document.getElementById('create-trip-card').style.display = '';
   document.getElementById('new-trip-name').focus();
 }
@@ -379,23 +380,56 @@ export function addNewTripMember() {
   input.value = '';
   input.focus();
   renderNewTripMemberChips();
+  renderKnownMemberPicker();
 }
 
 export function removeNewTripMember(name) {
   appState.newTripMembers = appState.newTripMembers.filter(m => m !== name);
   renderNewTripMemberChips();
+  renderKnownMemberPicker();
 }
 
 function renderNewTripMemberChips() {
   document.getElementById('new-trip-member-chips').innerHTML = appState.newTripMembers
-    .map(
-      m => `<span class="member-chip">${esc(m)}
-      <button class="member-chip-remove" onclick="removeNewTripMember(${jqAttr(m)})">
-        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-      </button>
-    </span>`,
-    )
+    .map(m => {
+      const avatarUrl = getAvatarUrlByMemberName(m);
+      const color = getMemberColor(m);
+      const avatarHtml = avatarUrl
+        ? `<img class="member-chip-avatar" src="${avatarUrl}" alt="${esc(m)} 頭像">`
+        : `<span class="member-chip-avatar member-chip-avatar--fallback" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${esc(m.charAt(0))}</span>`;
+      return `<span class="member-chip">
+        ${avatarHtml}
+        <span class="member-chip-name">${esc(m)}</span>
+        <button class="member-chip-remove" onclick="removeNewTripMember(${jqAttr(m)})">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </span>`;
+    })
     .join('');
+}
+
+function renderKnownMemberPicker() {
+  const el = document.getElementById('known-member-picker');
+  if (!el) return;
+  const known = getKnownMemberNames();
+  const available = known.filter(n => !appState.newTripMembers.includes(n));
+  if (available.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="known-member-bar">
+    <span class="known-member-bar-label">快速加入</span>
+    ${available.map(n => {
+      const c = getMemberColor(n);
+      return `<button type="button" class="known-member-bar-btn" onclick="pickKnownMemberForTrip(${jqAttr(n)})">
+        <span class="known-member-bar-dot" style="background:${c.fg}">${esc(n.charAt(0))}</span>${esc(n)}
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+export function pickKnownMemberForTrip(name) {
+  if (!name || appState.newTripMembers.includes(name)) return;
+  appState.newTripMembers.push(name);
+  renderNewTripMemberChips();
+  renderKnownMemberPicker();
 }
 
 export async function createTrip() {
@@ -489,7 +523,112 @@ export async function reopenTripAction(id) {
   }
 }
 
+// ── Member directory ─────────────────────────────────────────────────────────
+export function toggleMemberDirectory() {
+  const panel = document.getElementById('member-dir-panel');
+  const overlay = document.getElementById('member-dir-overlay');
+  const isOpen = panel.classList.contains('is-open');
+  if (isOpen) { closeMemberDirectory(); return; }
+  renderMemberDirectory();
+  overlay.classList.add('is-open');
+  panel.classList.add('is-open');
+}
+
+export function closeMemberDirectory() {
+  document.getElementById('member-dir-panel').classList.remove('is-open');
+  document.getElementById('member-dir-overlay').classList.remove('is-open');
+}
+
+function renderMemberDirectory() {
+  const body = document.getElementById('member-dir-body');
+  const members = getKnownMemberNames();
+  if (members.length === 0) {
+    body.innerHTML = '<div class="member-dir-empty">尚無成員紀錄</div>';
+    return;
+  }
+  body.innerHTML = members.map(name => {
+    const url = getAvatarUrlByMemberName(name);
+    const color = getMemberColor(name);
+    const avatarHtml = url
+      ? `<img class="member-dir-avatar-img" src="${url}" alt="${esc(name)}">`
+      : `<span class="member-dir-avatar-fallback" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</span>`;
+    return `<div class="member-dir-item" data-member="${esc(name)}">
+      <button type="button" class="member-dir-avatar" onclick="openAvatarPickerForMember(${jqAttr(name)})" title="更換頭像" style="background:${color.bg}">
+        ${avatarHtml}
+        <span class="member-dir-avatar-edit">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 7l1-2h4l1 2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3zm3 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
+        </span>
+      </button>
+      <div class="member-dir-name">${esc(name)}</div>
+      <div class="member-dir-actions">
+        <button type="button" class="member-dir-action-btn" onclick="renameMemberPrompt(${jqAttr(name)})" title="改名">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </button>
+        <button type="button" class="member-dir-action-btn member-dir-action-btn--danger" onclick="deleteKnownMember(${jqAttr(name)})" title="刪除">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+export function toggleTripColorPicker(tripId) {
+  const el = document.getElementById('tcp-' + tripId);
+  if (!el) return;
+  const wasOpen = el.style.display !== 'none';
+  document.querySelectorAll('.trip-color-picker').forEach(p => { p.style.display = 'none'; });
+  if (!wasOpen) el.style.display = '';
+}
+
+export async function setTripColor(tripId, colorId) {
+  const row = { type: 'trip', action: 'setColor', id: tripId, colorId };
+  appState.allRows.push(row);
+  renderTrips();
+  try { await postRow(row); } catch (e) { undoOptimisticPush(row); renderTrips(); toast(formatPostError(e)); }
+}
+
+export async function renameMemberPrompt(oldName) {
+  const newName = prompt(`將「${oldName}」改名為：`, oldName);
+  if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+  const trimmed = newName.trim();
+  const existing = getKnownMemberNames();
+  if (existing.includes(trimmed)) { toast(`「${trimmed}」已存在`); return; }
+  const row = { type: 'memberProfile', action: 'rename', memberName: oldName, newName: trimmed };
+  appState.allRows.push(row);
+  renderMemberDirectory();
+  refreshCurrentView();
+  try { await postRow(row); } catch (e) { undoOptimisticPush(row); renderMemberDirectory(); refreshCurrentView(); toast(formatPostError(e)); }
+}
+
+export async function deleteKnownMember(name) {
+  if (!name) return;
+  const ok = await showConfirm(`刪除成員「${name}」？`, '該成員將從選單中移除，但已參與的行程紀錄不受影響。');
+  if (!ok) return;
+  const row = { type: 'memberProfile', action: 'delete', memberName: name };
+  appState.allRows.push(row);
+  renderMemberDirectory();
+  renderKnownMemberPicker();
+  refreshCurrentView();
+  try { await postRow(row); } catch (e) { undoOptimisticPush(row); renderMemberDirectory(); renderKnownMemberPicker(); refreshCurrentView(); toast(formatPostError(e)); }
+}
+
+function refreshCurrentView() {
+  if (appState.currentPage === 'tripDetail') renderTripDetail();
+  else if (appState.currentPage === 'trips') renderTrips();
+}
+
 // ── Trip members ─────────────────────────────────────────────────────────────
+export async function addDetailMemberByName(name) {
+  if (!name) return;
+  const trip = getTripById(appState.currentTripId);
+  if (!trip) return;
+  if (trip.members.includes(name)) { toast(`「${name}」已在名單中`); return; }
+  const row = { type: 'tripMember', action: 'add', tripId: appState.currentTripId, memberName: name };
+  appState.allRows.push(row);
+  renderTripDetail();
+  try { await postRow(row); } catch (e) { undoOptimisticPush(row); renderTripDetail(); toast(formatPostError(e)); }
+}
+
 export async function addDetailMember() {
   const input = document.getElementById('detail-new-member');
   const name = input.value.trim();
@@ -798,25 +937,33 @@ export async function submitEditRecord() {
     }
   }
 
-  const row = {
+  const hasPhoto = photoDataUrlToSend !== undefined;
+  const optimisticRow = {
     type: appState._editRecord.type,
     action: 'edit',
     id: appState._editRecord.id,
     date,
     note,
     category,
-    ...(photoDataUrlToSend !== undefined
-      ? { photoDataUrl: photoDataUrlToSend, photoUrl: photoUrlToSet, photoFileId: '' }
-      : {}),
+    ...(hasPhoto ? { photoUrl: photoUrlToSet, photoFileId: '' } : {}),
   };
-  appState.allRows.push(row);
+  const postPayload = {
+    type: appState._editRecord.type,
+    action: 'edit',
+    id: appState._editRecord.id,
+    date,
+    note,
+    category,
+    ...(hasPhoto ? { photoDataUrl: photoDataUrlToSend, photoFileId: '' } : {}),
+  };
+  appState.allRows.push(optimisticRow);
   doRender();
   closeEditRecord();
   try {
-    await postRow(row);
+    await postRow(postPayload);
     toast('已更新');
   } catch (e) {
-    undoOptimisticPush(row);
+    undoOptimisticPush(optimisticRow);
     doRender();
     toast(formatPostError(e));
   }
@@ -927,7 +1074,9 @@ export async function handleAvatarSelected(ev) {
     avatarUrl: dataUrl,
   };
   appState.allRows.push(optimisticRow);
-  if (appState.currentTripId) renderTripDetail();
+  if (appState.currentPage === 'home') renderHome();
+  else if (appState.currentTripId) renderTripDetail();
+  if (document.getElementById('member-dir-panel')?.classList.contains('is-open')) renderMemberDirectory();
 
   try {
     await postRow({
@@ -940,7 +1089,9 @@ export async function handleAvatarSelected(ev) {
     toast('頭像已更新');
   } catch (e) {
     undoOptimisticPush(optimisticRow);
-    renderTripDetail();
+    if (appState.currentPage === 'home') renderHome();
+    else if (appState.currentTripId) renderTripDetail();
+    if (document.getElementById('member-dir-panel')?.classList.contains('is-open')) renderMemberDirectory();
     toast(formatPostError(e));
   }
 }

@@ -10,7 +10,7 @@ export const CATEGORIES = [
   { value: '其他', emoji: '📦', label: '📦 其他' },
 ];
 
-export const CATEGORY_STYLE = {
+const CATEGORY_STYLE_LIGHT = {
   餐飲: 'background:#fef3c7;color:#92400e',
   交通: 'background:#dbeafe;color:#1e40af',
   購物: 'background:#ede9fe;color:#5b21b6',
@@ -18,6 +18,20 @@ export const CATEGORY_STYLE = {
   生活: 'background:#d1fae5;color:#065f46',
   其他: 'background:#f3f4f6;color:#4b5563',
 };
+const CATEGORY_STYLE_DARK = {
+  餐飲: 'background:#78350f;color:#fcd34d',
+  交通: 'background:#1e3a5f;color:#93c5fd',
+  購物: 'background:#2e1065;color:#c4b5fd',
+  娛樂: 'background:#831843;color:#f9a8d4',
+  生活: 'background:#064e3b;color:#6ee7b7',
+  其他: 'background:#334155;color:#94a3b8',
+};
+export const CATEGORY_STYLE = new Proxy({}, {
+  get(_, key) {
+    const dark = document.documentElement.classList.contains('dark');
+    return (dark ? CATEGORY_STYLE_DARK : CATEGORY_STYLE_LIGHT)[key];
+  }
+});
 
 export const CATEGORY_KEYWORDS = {
   餐飲: [

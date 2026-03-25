@@ -138,7 +138,10 @@ export async function initApp() {
   updateThemeIcon();
   loadCache();
   updateSyncUI();
-  render();
+
+  if (!tryRestoreSessionFromStorage()) {
+    navigate('home');
+  }
 
   registerOverlayFocusTrap('edit-overlay', {
     closeFn: () => actions.closeEditRecord(),
@@ -156,9 +159,7 @@ export async function initApp() {
   initAmountInputs();
 
   const unchangedAfterFetch = await loadData();
-  if (!tryRestoreSessionFromStorage()) {
-    if (!unchangedAfterFetch) render();
-  }
+  if (!unchangedAfterFetch) renderWithScrollPreserved();
   schedulePoll();
 
   window.addEventListener('pagehide', () => persistSessionSnapshot());
