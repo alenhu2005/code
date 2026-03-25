@@ -17,6 +17,7 @@ import {
   readLastRouteFromLocalStorage,
   applyAnalysisPeriodFromSnapshot,
 } from './session-ui.js';
+import { initPullToRefresh } from './pull-refresh.js';
 
 function showUpdateBadge() {
   const el = document.getElementById('update-badge');
@@ -51,7 +52,7 @@ function renderWithScrollPreserved() {
   });
 }
 
-async function pollForChanges() {
+async function pollForChanges(opts = {}) {
   if (document.hidden) return schedulePoll();
   if (syncPausedForUserInput()) {
     schedulePoll();
@@ -65,7 +66,7 @@ async function pollForChanges() {
   }
   if (!unchanged) {
     renderWithScrollPreserved();
-    showUpdateBadge();
+    if (!opts.quiet) showUpdateBadge();
   }
   schedulePoll();
 }
@@ -110,6 +111,11 @@ function tryRestoreSessionFromStorage() {
  * touchstart 比 pointerdown 更可靠地在 iOS 慣性捲動期間觸發。
  * preventDefault 阻止後續的 click 事件（避免重複導覽），滑鼠仍依 onclick。
  */
+function syncOnNavigate() {
+  clearTimeout(appState._pollTimer);
+  pollForChanges({ quiet: true });
+}
+
 function initBottomNavTouchNavigate() {
   const pairs = [
     ['nav-home', 'home'],
@@ -126,11 +132,13 @@ function initBottomNavTouchNavigate() {
         e.preventDefault();
         el.classList.add('nav-btn--pressed');
         navigate(page);
+        syncOnNavigate();
       },
       { passive: false },
     );
     el.addEventListener('touchend', clearPress);
     el.addEventListener('touchcancel', clearPress);
+    el.addEventListener('click', () => syncOnNavigate());
   }
 }
 
@@ -194,4 +202,5 @@ export async function initApp() {
   });
 
   initBottomNavTouchNavigate();
+  initPullToRefresh();
 }

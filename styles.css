@@ -1280,6 +1280,28 @@
     }
     .sync-status-text { flex: 1; min-width: 0; }
 
+    /* ── Pull to refresh ── */
+    .pull-indicator {
+      position: fixed; top: -52px; left: 0; right: 0; z-index: 9999;
+      margin: 0 auto;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--surface); box-shadow: 0 2px 12px rgba(0,0,0,.15);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: transform .25s ease, opacity .25s ease;
+    }
+    .pull-indicator--visible { pointer-events: auto; }
+    .pull-indicator-icon {
+      width: 22px; height: 22px; fill: var(--primary);
+      transition: transform .1s linear;
+    }
+    .pull-indicator--refreshing .pull-indicator-icon {
+      animation: pullSpin .8s linear infinite;
+    }
+    @keyframes pullSpin {
+      to { transform: rotate(360deg); }
+    }
+
     /* ── Toast ── */
     #toast-container {
       position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);

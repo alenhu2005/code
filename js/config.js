@@ -31,7 +31,7 @@ export const CACHE_LEGACY_KEYS = ['gasRows_daily_v1', 'gasRows_trip_v1'];
 
 export const POST_TIMEOUT_MS = 45_000;
 export const GET_TIMEOUT_MS = 10_000;
-export const POLL_MS = 45_000;
+export const POLL_MS = 300_000;
 
 /** localStorage：上次成功從 GAS 拉取並寫入的時間（ms） */
 export const SYNC_LAST_AT_KEY = 'ledger_sync_last_at_v1';
