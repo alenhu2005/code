@@ -1480,7 +1480,7 @@
       animation: overlayIn 0.30s ease both;
     }
     #edit-overlay.open.closing {
-      animation: overlayOut 0.18s ease both;
+      animation: overlayOut 0.34s ease both;
     }
     .edit-dialog, .backup-dialog {
       animation: sheetUp 0.32s var(--ease-out) both;
@@ -1488,13 +1488,12 @@
     .edit-dialog {
       background: var(--surface); border-radius: 16px 16px 0 0;
       padding: 24px 20px; width: 100%; max-width: 480px;
-      touch-action: pan-y;
     }
     #edit-overlay.open .edit-dialog {
       animation: editSheetIn 0.62s var(--ease-spring) both;
     }
     #edit-overlay.open.closing .edit-dialog {
-      animation: editSheetOut 0.24s var(--ease-soft) both;
+      animation: editSheetOut 0.34s var(--ease-soft) both;
     }
     .edit-dialog-header {
       display: flex;
@@ -1502,14 +1501,6 @@
       justify-content: space-between;
       gap: 10px;
       margin-bottom: 12px;
-      touch-action: pan-y;
-    }
-    .sheet-handle {
-      width: 44px;
-      height: 5px;
-      border-radius: 99px;
-      background: rgba(107, 114, 128, 0.35);
-      margin: 0 auto 10px;
     }
     .edit-dialog h3 { font-size: 16px; font-weight: 600; margin: 0; }
     .edit-dialog-close {
@@ -1557,11 +1548,6 @@
       from { transform: translateY(0); opacity: 1; }
       to { transform: translateY(110px); opacity: 0; }
     }
-
-    /* Drag-to-dismiss (JS sets inline transform) */
-    #edit-overlay.sheet-dragging { animation: none; }
-    #edit-overlay.sheet-dragging .edit-dialog { animation: none; }
-    #edit-overlay.sheet-dragging .edit-dialog-header { cursor: grab; }
 
     .record-avatar-img {
       width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;
@@ -1744,12 +1730,6 @@
       --primary-dark: #93c5fd;
     }
 
-    /* Prevent background scroll when edit sheet opens */
-    html.edit-sheet-open,
-    html.edit-sheet-open body {
-      overflow: hidden;
-      overscroll-behavior: none;
-    }
     html.dark .header { background: rgba(15,23,42,.92); }
     html.dark #bottom-nav { background: rgba(15,23,42,.96); }
     html.dark #sync-status-bar {
