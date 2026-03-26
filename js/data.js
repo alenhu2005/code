@@ -164,12 +164,25 @@ export const MEMBER_COLORS = [
 
 // Easter eggs: hidden colors (not in the 16-color cycle)
 export const HIDDEN_MEMBER_COLORS = [
-  { id: 'hidden-neon', label: '霓虹青', bg: '#ecfeff', fg: '#22d3ee', darkBg: '#042f2e', darkFg: '#67e8f9' },
-  { id: 'hidden-gold', label: '流金', bg: '#fffbeb', fg: '#d97706', darkBg: '#2b1600', darkFg: '#fbbf24' },
-  { id: 'hidden-cosmic', label: '星際紫', bg: '#f5f3ff', fg: '#7c3aed', darkBg: '#12002b', darkFg: '#c4b5fd' },
-  { id: 'hidden-lava', label: '熔岩橙', bg: '#fff7ed', fg: '#ea580c', darkBg: '#2a0a00', darkFg: '#fb923c' },
-  { id: 'hidden-mint', label: '薄荷綠', bg: '#ecfdf5', fg: '#059669', darkBg: '#022c22', darkFg: '#34d399' },
+  { id: 'hidden-neon', label: '霓虹青', styleKey: 'neon', bg: '#ecfeff', fg: '#22d3ee', darkBg: '#042f2e', darkFg: '#67e8f9' },
+  { id: 'hidden-gold', label: '流金', styleKey: 'gold', bg: '#fffbeb', fg: '#d97706', darkBg: '#2b1600', darkFg: '#fbbf24' },
+  { id: 'hidden-cosmic', label: '星際紫', styleKey: 'cosmic', bg: '#f5f3ff', fg: '#7c3aed', darkBg: '#12002b', darkFg: '#c4b5fd' },
+  { id: 'hidden-lava', label: '熔岩橙', styleKey: 'lava', bg: '#fff7ed', fg: '#ea580c', darkBg: '#2a0a00', darkFg: '#fb923c' },
+  { id: 'hidden-mint', label: '薄荷綠', styleKey: 'mint', bg: '#ecfdf5', fg: '#059669', darkBg: '#022c22', darkFg: '#34d399' },
+  { id: 'hidden-aurora', label: '極光', styleKey: 'aurora', bg: '#eef2ff', fg: '#6366f1', darkBg: '#0b102a', darkFg: '#a5b4fc' },
+  { id: 'hidden-sakura', label: '櫻霧', styleKey: 'sakura', bg: '#fff1f2', fg: '#fb7185', darkBg: '#2a0a14', darkFg: '#fda4af' },
+  { id: 'hidden-ice', label: '冰晶', styleKey: 'ice', bg: '#f0f9ff', fg: '#38bdf8', darkBg: '#062235', darkFg: '#7dd3fc' },
+  { id: 'hidden-ink', label: '墨影', styleKey: 'ink', bg: '#f1f5f9', fg: '#0f172a', darkBg: '#020617', darkFg: '#e2e8f0' },
+  { id: 'hidden-prism', label: '稜鏡', styleKey: 'prism', bg: '#fdf4ff', fg: '#e879f9', darkBg: '#1a0622', darkFg: '#f5d0fe' },
 ];
+
+/** 隱藏色的視覺風格 key（用於套不同邊框/光暈） */
+export function getHiddenMemberStyleKey(id) {
+  const v = typeof id === 'string' ? id.trim() : '';
+  if (!v) return '';
+  const h = HIDDEN_MEMBER_COLORS.find(x => x.id === v);
+  return h?.styleKey || '';
+}
 
 /** 行程地標／卡片色（5 色）；與成員 16 色分開 */
 export const TRIP_COLORS = [

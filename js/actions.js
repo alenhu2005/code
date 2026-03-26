@@ -13,6 +13,7 @@ import {
   getMemberColor,
   getMemberColorId,
   isHiddenMemberColorId,
+  getHiddenMemberStyleKey,
   MEMBER_COLORS,
   HIDDEN_MEMBER_COLORS,
   TRIP_COLORS,
@@ -511,11 +512,13 @@ function renderNewTripMemberChips() {
       const avatarUrl = getAvatarUrlByMemberName(m);
       const color = getMemberColor(m);
       const rare = isHiddenMemberColorId(color.id);
-      const avCls = rare ? ' member-chip-avatar--rare' : '';
+      const sk = rare ? getHiddenMemberStyleKey(color.id) : '';
+      const styleCls = sk ? ` member-rare--${sk}` : '';
+      const avCls = rare ? ` member-chip-avatar--rare${styleCls}` : '';
       const avatarHtml = avatarUrl
         ? `<img class="member-chip-avatar${avCls}" src="${avatarUrl}" alt="${esc(m)} 頭像">`
-        : `<span class="member-chip-avatar member-chip-avatar--fallback${rare ? ' member-chip-avatar-fallback--rare' : ''}" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${esc(m.charAt(0))}</span>`;
-      return `<span class="member-chip${rare ? ' member-chip--rare' : ''}">
+        : `<span class="member-chip-avatar member-chip-avatar--fallback${rare ? ` member-chip-avatar-fallback--rare${styleCls}` : ''}" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${esc(m.charAt(0))}</span>`;
+      return `<span class="member-chip${rare ? ` member-chip--rare${styleCls}` : ''}">
         ${avatarHtml}
         <span class="member-chip-name">${esc(m)}</span>
         <button class="member-chip-remove" onclick="removeNewTripMember(${jqAttr(m)})">
@@ -537,8 +540,10 @@ function renderKnownMemberPicker() {
     ${available.map(n => {
       const c = getMemberColor(n);
       const rare = isHiddenMemberColorId(c.id);
-      return `<button type="button" class="known-member-bar-btn${rare ? ' known-member-bar-btn--rare' : ''}" onclick="pickKnownMemberForTrip(${jqAttr(n)})">
-        <span class="known-member-bar-dot${rare ? ' known-member-bar-dot--rare' : ''}" style="background:${c.fg}">${esc(n.charAt(0))}</span>${esc(n)}
+      const sk = rare ? getHiddenMemberStyleKey(c.id) : '';
+      const styleCls = sk ? ` member-rare--${sk}` : '';
+      return `<button type="button" class="known-member-bar-btn${rare ? ` known-member-bar-btn--rare${styleCls}` : ''}" onclick="pickKnownMemberForTrip(${jqAttr(n)})">
+        <span class="known-member-bar-dot${rare ? ` known-member-bar-dot--rare${styleCls}` : ''}" style="background:${c.fg}">${esc(n.charAt(0))}</span>${esc(n)}
       </button>`;
     }).join('')}
   </div>`;
@@ -686,13 +691,15 @@ function renderMemberDirectory() {
     const url = getAvatarUrlByMemberName(name, 'trip');
     const color = getMemberColor(name);
     const rare = isHiddenMemberColorId(color.id);
+    const sk = rare ? getHiddenMemberStyleKey(color.id) : '';
+    const styleCls = sk ? ` member-rare--${sk}` : '';
     const avImgCls = `member-dir-avatar-img${rare ? ' member-dir-avatar-img--rare' : ''}`;
     const fbCls = `member-dir-avatar-fallback${rare ? ' member-dir-avatar-fallback--rare' : ''}`;
     const avatarHtml = url
       ? `<img class="${avImgCls}" src="${url}" alt="${esc(name)}">`
       : `<span class="${fbCls}" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</span>`;
-    return `<div class="member-dir-item${rare ? ' member-dir-item--rare' : ''}" data-member="${esc(name)}">
-      <button type="button" class="member-dir-avatar${rare ? ' member-dir-avatar--rare' : ''}" onclick="openAvatarPickerForMember(${jqAttr(name)},'trip')" title="更換頭像" style="background:${color.bg}">
+    return `<div class="member-dir-item${rare ? ` member-dir-item--rare${styleCls}` : ''}" data-member="${esc(name)}">
+      <button type="button" class="member-dir-avatar${rare ? ` member-dir-avatar--rare${styleCls}` : ''}" onclick="openAvatarPickerForMember(${jqAttr(name)},'trip')" title="更換頭像" style="background:${color.bg}">
         ${avatarHtml}
         <span class="member-dir-avatar-edit">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 7l1-2h4l1 2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3zm3 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/></svg>
@@ -721,10 +728,10 @@ export async function cycleMemberColor(memberName) {
   const curId = getMemberColorId(name);
   const curIsHidden = HIDDEN_MEMBER_COLORS.some(h => h.id === curId);
 
-  // 5 hidden colors, each ~1% chance.
-  // Roll [0..99]: 0-4 => hidden[roll] (each 1%), otherwise normal cycle.
-  const roll = randomUniformIndex(100);
-  if (roll < 5) {
+  // 10 hidden styles/colors, each 0.1% chance (total 1%).
+  // Roll [0..999]: 0-9 => hidden[roll] (each 0.1%), otherwise normal cycle.
+  const roll = randomUniformIndex(1000);
+  if (roll < 10) {
     const hidden = HIDDEN_MEMBER_COLORS[roll];
     if (hidden) {
       const row = { type: 'memberProfile', action: 'setColor', memberName: name, colorId: hidden.id };
@@ -733,7 +740,7 @@ export async function cycleMemberColor(memberName) {
       const hueName = hidden.label || hidden.id;
       await showAlert(
         '稀有配色！',
-        `「${name}」刷到了隱藏色「${hueName}」。每次點換色約 1% 機率出現，恭喜。`,
+        `「${name}」刷到了隱藏色「${hueName}」。每次點換色約 1% 機率出現（10 款各 0.1%），恭喜。`,
       );
       try {
         const pr = await postRow(row);

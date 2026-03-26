@@ -5,6 +5,8 @@ import {
   getTripExpensesFromRows,
   getTripPaletteColorId,
   pickRandomTripColorId,
+  getHiddenMemberStyleKey,
+  HIDDEN_MEMBER_COLORS,
 } from '../js/data.js';
 
 describe('getDailyRecordsFromRows', () => {
@@ -71,6 +73,18 @@ describe('trip palette (5 colors)', () => {
     ];
     const picked = pickRandomTripColorId(rows);
     expect(['amber', 'violet', 'rose']).toContain(picked);
+  });
+});
+
+describe('hidden member styles', () => {
+  it('has 10 hidden variants', () => {
+    expect(HIDDEN_MEMBER_COLORS).toHaveLength(10);
+  });
+
+  it('getHiddenMemberStyleKey maps hidden id', () => {
+    expect(getHiddenMemberStyleKey('hidden-neon')).toBe('neon');
+    expect(getHiddenMemberStyleKey(' hidden-neon ')).toBe('neon');
+    expect(getHiddenMemberStyleKey('not-a-hidden')).toBe('');
   });
 });
 

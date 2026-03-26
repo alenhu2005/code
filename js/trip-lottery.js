@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { getTripById, getAvatarUrlByMemberName, getMemberColor, isHiddenMemberColorId } from './data.js';
+import { getTripById, getAvatarUrlByMemberName, getMemberColor, isHiddenMemberColorId, getHiddenMemberStyleKey } from './data.js';
 import { esc, jq, prefersReducedMotion, randomUniformIndex, toast } from './utils.js';
 
 const STORAGE_KEY = 'ledger_trip_lottery_v1';
@@ -84,12 +84,14 @@ function lotteryAvatarHtml(name) {
   const url = getAvatarUrlByMemberName(name, 'trip');
   const color = getMemberColor(name);
   const rare = isHiddenMemberColorId(color.id);
-  const rareCls = rare ? ' trip-lottery-avatar--rare' : '';
+  const sk = rare ? getHiddenMemberStyleKey(color.id) : '';
+  const styleCls = sk ? ` member-rare--${sk}` : '';
+  const rareCls = rare ? ` trip-lottery-avatar--rare${styleCls}` : '';
   if (url) {
     return `<span class="trip-lottery-avatar${rareCls}" aria-hidden="true"><img class="trip-lottery-avatar-img${rare ? ' trip-lottery-avatar-img--rare' : ''}" src="${url}" alt=""></span>`;
   }
   const ch = esc(String(name || '').trim().charAt(0) || '？');
-  return `<span class="trip-lottery-avatar trip-lottery-avatar--fallback${rareCls}${rare ? ' trip-lottery-avatar-fallback--rare' : ''}" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${ch}</span>`;
+  return `<span class="trip-lottery-avatar trip-lottery-avatar--fallback${rareCls}${rare ? ` trip-lottery-avatar-fallback--rare${styleCls}` : ''}" style="background:${color.bg};color:${color.fg}" aria-hidden="true">${ch}</span>`;
 }
 
 function lotteryResultHtml(name) {
