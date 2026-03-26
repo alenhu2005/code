@@ -2377,6 +2377,8 @@
       border: none; padding: 0; background: var(--bg-secondary);
       overflow: hidden;
     }
+    /* Rare frames need to protrude outside the circle (ice spikes, embers, rings). */
+    .member-dir-avatar.member-dir-avatar--rare { overflow: visible; }
     .member-dir-avatar-img {
       width: 100%; height: 100%; object-fit: cover; display: block;
     }
