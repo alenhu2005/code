@@ -2332,7 +2332,12 @@
       gap: 10px;
       flex-wrap: wrap;
     }
-    .member-preview-sample { display: inline-flex; align-items: center; }
+    /* Give pseudo-elements (e.g. ice spikes) breathing room inside preview */
+    .member-preview-sample {
+      display: inline-flex;
+      align-items: center;
+      padding: 12px;
+    }
 
     .member-dir-header {
       display: flex; align-items: center; justify-content: space-between;
