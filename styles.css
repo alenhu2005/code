@@ -831,6 +831,33 @@
       z-index: 2;
       border-radius: 50%;
     }
+
+    /* ice — make protrusions unmistakable (icy crown) */
+    .member-rare--ice .member-dir-avatar--rare::before,
+    .member-rare--ice.record-avatar--rare::before {
+      inset: -14px;
+      opacity: .95;
+      background:
+        conic-gradient(
+          from 0deg,
+          rgba(255,255,255,0) 0 6deg,
+          rgba(255,255,255,.95) 6deg 8deg,
+          rgba(255,255,255,0) 8deg 14deg,
+          rgba(224,242,254,.9) 14deg 16deg,
+          rgba(255,255,255,0) 16deg 22deg,
+          rgba(186,230,253,.9) 22deg 24deg,
+          rgba(255,255,255,0) 24deg 30deg,
+          rgba(255,255,255,.92) 30deg 32deg,
+          rgba(255,255,255,0) 32deg 38deg
+        ),
+        radial-gradient(closest-side, rgba(255,255,255,.30), transparent 70%);
+      /* show only outside of the circle so it looks like it grows outward */
+      mask: radial-gradient(closest-side, transparent 58%, #000 60%);
+      -webkit-mask: radial-gradient(closest-side, transparent 58%, #000 60%);
+      filter:
+        drop-shadow(0 2px 7px rgba(56,189,248,.32))
+        drop-shadow(0 1px 0 rgba(255,255,255,.55));
+    }
     .record-avatar.me { background: var(--primary-light); color: var(--primary); }
     .record-avatar.other { background: #f3f4f6; color: var(--text); }
     .record-avatar.settle { background: #d1fae5; color: #065f46; }
