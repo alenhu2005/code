@@ -97,13 +97,17 @@ function playTripSettlementAnimations() {
 function tripRecordAvatar(name, cssClass) {
   const url = getAvatarUrlByMemberName(name, 'trip');
   const color = getMemberColor(name);
+  const rare = isHiddenMemberColorId(color.id);
+  const sk = rare ? getHiddenMemberStyleKey(color.id) : '';
+  const styleCls = sk ? ` member-rare--${sk}` : '';
+  const rareCls = rare ? ` record-avatar--rare${styleCls}` : '';
   if (url) {
-    return `<div class="record-avatar ${cssClass}"><img class="record-avatar-img" src="${url}" alt="${esc(name)}"></div>`;
+    return `<div class="record-avatar ${cssClass}${rareCls}"><img class="record-avatar-img" src="${url}" alt="${esc(name)}"></div>`;
   }
   if (cssClass === 'multi' || cssClass === 'split' || cssClass === 'settle') {
     return `<div class="record-avatar ${cssClass}">${esc(name)}</div>`;
   }
-  return `<div class="record-avatar ${cssClass}" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</div>`;
+  return `<div class="record-avatar ${cssClass}${rareCls}" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</div>`;
 }
 
 function memberAvatarPill(name, cssClass) {

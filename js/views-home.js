@@ -1,6 +1,6 @@
 import { USER_A, USER_B } from './config.js';
 import { appState } from './state.js';
-import { getDailyRecords, getAvatarUrlByMemberName } from './data.js';
+import { getDailyRecords, getAvatarUrlByMemberName, getMemberColor, isHiddenMemberColorId, getHiddenMemberStyleKey } from './data.js';
 import { computeBalance } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr, prefersReducedMotion } from './utils.js';
@@ -205,13 +205,18 @@ function runningHTML(val) {
 
 function recordAvatarHTML(name, cssClass, clickable = false) {
   const url = getAvatarUrlByMemberName(name, 'daily');
+  const color = getMemberColor(name);
+  const rare = isHiddenMemberColorId(color.id);
+  const sk = rare ? getHiddenMemberStyleKey(color.id) : '';
+  const styleCls = sk ? ` member-rare--${sk}` : '';
+  const rareCls = rare ? ` record-avatar--rare${styleCls}` : '';
   const inner = url
     ? `<img class="record-avatar-img" src="${url}" alt="${esc(name)}">`
     : esc(name);
   if (clickable) {
-    return `<button type="button" class="record-avatar ${cssClass} record-avatar-clickable" onclick="openAvatarPickerForMember(${jqAttr(name)},'daily')" title="${esc(name)} — 點擊更換頭像">${inner}</button>`;
+    return `<button type="button" class="record-avatar ${cssClass}${rareCls} record-avatar-clickable" onclick="openAvatarPickerForMember(${jqAttr(name)},'daily')" title="${esc(name)} — 點擊更換頭像">${inner}</button>`;
   }
-  return `<div class="record-avatar ${cssClass}">${inner}</div>`;
+  return `<div class="record-avatar ${cssClass}${rareCls}">${inner}</div>`;
 }
 
 function photoThumbHTML(r) {
