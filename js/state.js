@@ -54,6 +54,9 @@ export const appState = {
   detailPaidBy: '',
   detailMultiPay: false,
 
+  /** memberName -> pending colorId (coalesced; used to avoid spamming spreadsheet) */
+  pendingMemberColors: {},
+
   _dlgResolve: null,
   _editRecord: null,
   _pollTimer: null,

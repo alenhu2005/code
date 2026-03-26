@@ -290,6 +290,12 @@ export function getMemberColor(memberName) {
   const renames = buildRenameMap();
   const name = resolveMemberName(memberName ?? '', renames);
 
+  const pendingId = appState.pendingMemberColors?.[name];
+  if (pendingId) {
+    const pickedPending = [...MEMBER_COLORS, ...HIDDEN_MEMBER_COLORS].find(c => c.id === String(pendingId).trim());
+    if (pickedPending) return resolveColor(pickedPending);
+  }
+
   let colorId = null;
   for (const r of appState.allRows) {
     if (r && r.type === 'memberProfile' && r.action === 'setColor' && r.memberName && r.colorId) {

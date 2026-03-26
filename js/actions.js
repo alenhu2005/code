@@ -676,9 +676,62 @@ export function toggleMemberDirectory() {
 }
 
 export function closeMemberDirectory() {
+  flushPendingMemberColors();
   document.getElementById('member-dir-panel').classList.remove('is-open');
   document.getElementById('member-dir-overlay').classList.remove('is-open');
 }
+
+let _pendingMemberColorFlushTimer = null;
+
+function scheduleFlushPendingMemberColors() {
+  if (_pendingMemberColorFlushTimer) clearTimeout(_pendingMemberColorFlushTimer);
+  _pendingMemberColorFlushTimer = setTimeout(() => {
+    _pendingMemberColorFlushTimer = null;
+    flushPendingMemberColors();
+  }, 900);
+}
+
+function getLastPersistedMemberColorId(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  for (let i = appState.allRows.length - 1; i >= 0; i--) {
+    const r = appState.allRows[i];
+    if (r && r.type === 'memberProfile' && r.action === 'setColor' && r.memberName === n && r.colorId) {
+      return String(r.colorId).trim();
+    }
+  }
+  return '';
+}
+
+export async function flushPendingMemberColors() {
+  const pending = appState.pendingMemberColors || {};
+  const entries = Object.entries(pending);
+  if (entries.length === 0) return;
+  // Clear first so new taps can start a new batch.
+  appState.pendingMemberColors = {};
+  for (const [memberName, colorId] of entries) {
+    const nextId = String(colorId || '').trim();
+    if (!memberName || !nextId) continue;
+    const prevId = getLastPersistedMemberColorId(memberName);
+    if (prevId === nextId) continue;
+    const row = { type: 'memberProfile', action: 'setColor', memberName, colorId: nextId };
+    appState.allRows.push(row);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const pr = await postRow(row);
+      if (pr.status === 'queued') toast('已暫存，連上網路後會自動上傳');
+    } catch (e) {
+      undoOptimisticPush(row);
+      toast(formatPostError(e));
+    }
+  }
+  if (document.getElementById('member-dir-panel')?.classList.contains('is-open')) renderMemberDirectory();
+}
+
+// Best-effort flush when user reloads/closes the tab.
+window.addEventListener('pagehide', () => {
+  try { flushPendingMemberColors(); } catch { /* ignore */ }
+});
 
 function renderMemberDirectory() {
   const body = document.getElementById('member-dir-body');
@@ -734,22 +787,14 @@ export async function cycleMemberColor(memberName) {
   if (roll < 10) {
     const hidden = HIDDEN_MEMBER_COLORS[roll];
     if (hidden) {
-      const row = { type: 'memberProfile', action: 'setColor', memberName: name, colorId: hidden.id };
-      appState.allRows.push(row);
+      appState.pendingMemberColors[name] = hidden.id;
       renderMemberDirectory();
       const hueName = hidden.label || hidden.id;
       await showAlert(
         '稀有配色！',
         `「${name}」刷到了隱藏色「${hueName}」。每次點換色約 1% 機率出現（10 款各 0.1%），恭喜。`,
       );
-      try {
-        const pr = await postRow(row);
-        if (pr.status === 'queued') toast('已暫存，連上網路後會自動上傳');
-      } catch (e) {
-        undoOptimisticPush(row);
-        renderMemberDirectory();
-        toast(formatPostError(e));
-      }
+      scheduleFlushPendingMemberColors();
       return;
     }
   }
@@ -765,17 +810,9 @@ export async function cycleMemberColor(memberName) {
   const idx = MEMBER_COLORS.findIndex(c => c.id === curId);
   const next = MEMBER_COLORS[(idx >= 0 ? idx + 1 : 0) % MEMBER_COLORS.length];
   if (!next) return;
-  const row = { type: 'memberProfile', action: 'setColor', memberName: name, colorId: next.id };
-  appState.allRows.push(row);
+  appState.pendingMemberColors[name] = next.id;
   renderMemberDirectory();
-  try {
-    const pr = await postRow(row);
-    if (pr.status === 'queued') toast('已暫存，連上網路後會自動上傳');
-  } catch (e) {
-    undoOptimisticPush(row);
-    renderMemberDirectory();
-    toast(formatPostError(e));
-  }
+  scheduleFlushPendingMemberColors();
 }
 
 function hasExplicitMemberColor(name) {
