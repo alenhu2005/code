@@ -1029,6 +1029,7 @@ function ensureEditSheetDragToDismiss() {
   const dialog = overlay.querySelector('.edit-dialog');
   const header = overlay.querySelector('.edit-dialog-header');
   if (!dialog || !header) return;
+  const handle = overlay.querySelector('.sheet-handle');
 
   overlay._dragDismissBound = true;
 
@@ -1043,6 +1044,8 @@ function ensureEditSheetDragToDismiss() {
     dialog.style.transform = '';
     dragging = false;
   };
+
+  const dragTarget = handle || header;
 
   header.addEventListener(
     'touchstart',
@@ -1071,10 +1074,15 @@ function ensureEditSheetDragToDismiss() {
       lastY = y;
       lastT = Date.now();
 
+      // Prevent background/page scroll while dragging down.
+      if (dy > 0) {
+        try { e.preventDefault(); } catch {}
+      }
+
       // Move sheet down
       dialog.style.transform = `translateY(${dy}px)`;
     },
-    { passive: true },
+    { passive: false },
   );
 
   header.addEventListener(
@@ -1110,6 +1118,60 @@ function ensureEditSheetDragToDismiss() {
     },
     { passive: true },
   );
+
+  // Desktop: mouse / trackpad dragging via pointer events
+  if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+    let pointerId = null;
+
+    dragTarget.addEventListener('pointerdown', e => {
+      if (!overlay.classList.contains('open')) return;
+      if (e.button != null && e.button !== 0) return; // left click only
+      pointerId = e.pointerId;
+      startY = e.clientY;
+      lastY = startY;
+      lastT = Date.now();
+      dragging = true;
+      overlay.classList.add('sheet-dragging');
+      dialog.style.transition = 'none';
+      try { dragTarget.setPointerCapture(pointerId); } catch {}
+      try { e.preventDefault(); } catch {}
+    });
+
+    dragTarget.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      const y = e.clientY;
+      const dy = Math.max(0, y - startY);
+      lastY = y;
+      lastT = Date.now();
+      if (dy > 0) {
+        try { e.preventDefault(); } catch {}
+      }
+      dialog.style.transform = `translateY(${dy}px)`;
+    });
+
+    const endPointer = e => {
+      if (!dragging) return;
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      const dy = Math.max(0, lastY - startY);
+      const dt = Math.max(1, Date.now() - lastT);
+      const v = dy / dt;
+      pointerId = null;
+
+      const shouldClose = dy > 120 || v > 1.2;
+      if (shouldClose) {
+        reset();
+        closeEditRecord();
+        return;
+      }
+      dialog.style.transition = 'transform 0.22s var(--ease-soft)';
+      dialog.style.transform = 'translateY(0)';
+      setTimeout(reset, 240);
+    };
+
+    dragTarget.addEventListener('pointerup', endPointer);
+    dragTarget.addEventListener('pointercancel', endPointer);
+  }
 }
 
 export function openEditRecord(r) {
@@ -1118,6 +1180,7 @@ export function openEditRecord(r) {
   editPhotoPendingChange = null;
 
   ensureEditSheetDragToDismiss();
+  try { document.documentElement.classList.add('edit-sheet-open'); } catch {}
 
   const voidBtn = document.getElementById('edit-void-btn');
   if (voidBtn) {
@@ -1186,6 +1249,7 @@ export function closeEditRecord() {
     overlay.classList.remove('open');
     overlay.classList.remove('closing');
     overlay._closingTimer = null;
+    try { document.documentElement.classList.remove('edit-sheet-open'); } catch {}
   }, 180);
   appState._editRecord = null;
   editPhotoPendingChange = null;

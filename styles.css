@@ -1743,6 +1743,13 @@
       --primary-light: rgba(59,130,246,.15);
       --primary-dark: #93c5fd;
     }
+
+    /* Prevent background scroll when edit sheet opens */
+    html.edit-sheet-open,
+    html.edit-sheet-open body {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
     html.dark .header { background: rgba(15,23,42,.92); }
     html.dark #bottom-nav { background: rgba(15,23,42,.96); }
     html.dark #sync-status-bar {
