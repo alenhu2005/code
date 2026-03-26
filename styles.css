@@ -832,6 +832,12 @@
       border-radius: 50%;
     }
 
+    /* Trip detail "歷史紀錄" card: leave room for rare rings/spikes */
+    #detail-expenses .record-item {
+      padding-left: calc(24px + env(safe-area-inset-left, 0px));
+      padding-right: calc(24px + env(safe-area-inset-right, 0px));
+    }
+
     /* ice — make protrusions unmistakable (icy crown) */
     .member-rare--ice .member-dir-avatar--rare::before,
     .member-dir-avatar--rare.member-rare--ice::before,
