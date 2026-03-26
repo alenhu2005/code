@@ -740,6 +740,7 @@ export function openHiddenStylePreview() {
     const sk = h.styleKey || '';
     const styleCls = sk ? ` member-rare--${sk}` : '';
     const label = h.label || h.id;
+    const colorId = h.id || '';
     const chip = `<span class="member-chip member-chip--rare${styleCls}">
       <span class="member-chip-avatar member-chip-avatar--fallback member-chip-avatar-fallback--rare${styleCls}" style="background:${h.bg};color:${h.fg}" aria-hidden="true">隱</span>
       <span class="member-chip-name">${esc(label)}</span>
@@ -750,7 +751,10 @@ export function openHiddenStylePreview() {
       <span class="member-dir-avatar-fallback member-dir-avatar-fallback--rare" style="background:${h.bg};color:${h.fg}">隱</span>
     </button>`;
     return `<div class="member-preview-row">
-      <div class="member-preview-name">${esc(label)}</div>
+      <div class="member-preview-name">
+        <div class="member-preview-label">${esc(label)}</div>
+        <div class="member-preview-id">${esc(colorId)}</div>
+      </div>
       <div class="member-preview-samples">
         ${chip}
         <span class="member-preview-sample">${dot}</span>
