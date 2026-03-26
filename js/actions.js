@@ -776,6 +776,11 @@ export function hiddenPreviewSecretTap() {
   if (now - _hiddenPreviewTapAt > 1600) _hiddenPreviewTapCount = 0;
   _hiddenPreviewTapAt = now;
   _hiddenPreviewTapCount++;
+  if (_hiddenPreviewTapCount >= 11) {
+    _hiddenPreviewTapCount = 0;
+    forceRefreshAssets();
+    return;
+  }
   if (_hiddenPreviewTapCount >= 7) {
     _hiddenPreviewTapCount = 0;
     openHiddenStylePreview();
@@ -795,6 +800,26 @@ export function hiddenPreviewSecretPressEnd() {
     clearTimeout(_hiddenPreviewPressTimer);
     _hiddenPreviewPressTimer = null;
   }
+}
+
+export async function forceRefreshAssets() {
+  toast('正在更新資源…');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      // eslint-disable-next-line no-await-in-loop
+      for (const r of regs) await r.unregister();
+    }
+    if (window.caches && caches.keys) {
+      const keys = await caches.keys();
+      // eslint-disable-next-line no-await-in-loop
+      for (const k of keys) await caches.delete(k);
+    }
+  } catch {
+    /* ignore */
+  }
+  // Reload without relying on SW
+  window.location.reload();
 }
 
 function renderMemberDirectory() {

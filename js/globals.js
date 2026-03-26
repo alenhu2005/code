@@ -146,6 +146,7 @@ Object.assign(window, {
   hiddenPreviewSecretTap: actions.hiddenPreviewSecretTap,
   hiddenPreviewSecretPressStart: actions.hiddenPreviewSecretPressStart,
   hiddenPreviewSecretPressEnd: actions.hiddenPreviewSecretPressEnd,
+  forceRefreshAssets: actions.forceRefreshAssets,
   renameMemberPrompt: actions.renameMemberPrompt,
   deleteKnownMember: actions.deleteKnownMember,
   toggleTripColorPicker: actions.toggleTripColorPicker,
