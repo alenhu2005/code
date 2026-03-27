@@ -23,6 +23,15 @@
       --dur: 0.32s;
     }
 
+    html {
+      scroll-behavior: smooth;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
@@ -32,7 +41,18 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    html { scroll-behavior: smooth; }
+    /* 表單與明確標記區塊維持可選取／系統拷貝選單（其餘繼承 html 的 app 質感） */
+    input,
+    textarea,
+    select,
+    [contenteditable="true"],
+    .allow-select {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
 
     #app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
 
