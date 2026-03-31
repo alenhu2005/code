@@ -3,10 +3,12 @@ import { appState } from './state.js';
 import { getDailyRecords, getAvatarUrlByMemberName, getMemberColor, isHiddenMemberColorId, getHiddenMemberStyleKey } from './data.js';
 import { computeBalance } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
-import { esc, jq, jqAttr, prefersReducedMotion } from './utils.js';
+import { esc, jq, jqAttr, prefersReducedMotion, bindScrollReveal } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 
 let balanceCountGen = 0;
+let prevHomeDailyExpCount = null;
+let prevBalanceBarClass = '';
 
 /** 樂觀更新失敗時呼叫，中止進行中的結算數字刷動 */
 export function cancelHomeBalanceAnim() {
@@ -41,7 +43,19 @@ export function renderHome() {
   const records = getDailyRecords();
   appState._dailyRecordsCache = records;
   const expCount = records.filter(r => r.type === 'daily').length;
-  document.getElementById('home-count').textContent = expCount + ' 筆';
+  const homeCountEl = document.getElementById('home-count');
+  homeCountEl.textContent = expCount + ' 筆';
+  if (prevHomeDailyExpCount !== null && prevHomeDailyExpCount !== expCount && !prefersReducedMotion()) {
+    homeCountEl.classList.remove('home-count--tick');
+    void homeCountEl.offsetWidth;
+    homeCountEl.classList.add('home-count--tick');
+    window.clearTimeout(homeCountEl._tickT);
+    homeCountEl._tickT = window.setTimeout(() => {
+      homeCountEl.classList.remove('home-count--tick');
+      homeCountEl._tickT = null;
+    }, 420);
+  }
+  prevHomeDailyExpCount = expCount;
 
   const balance = computeBalance(records);
   const bar = document.getElementById('balance-bar');
@@ -113,6 +127,18 @@ export function renderHome() {
     who.textContent = `${USER_A}欠${USER_B}`;
     applyBalanceAmount();
   }
+  const barClsNow = bar.className;
+  if (prevBalanceBarClass && prevBalanceBarClass !== barClsNow && !prefersReducedMotion()) {
+    iconWrap.classList.remove('balance-icon--pulse');
+    void iconWrap.offsetWidth;
+    iconWrap.classList.add('balance-icon--pulse');
+    window.clearTimeout(iconWrap._pulseT);
+    iconWrap._pulseT = window.setTimeout(() => {
+      iconWrap.classList.remove('balance-icon--pulse');
+      iconWrap._pulseT = null;
+    }, 420);
+  }
+  prevBalanceBarClass = barClsNow;
   sub.textContent = expCount > 0 ? '共 ' + expCount + ' 筆消費' : '';
 
   const ordered = [...records].reverse();
@@ -147,6 +173,7 @@ export function renderHome() {
   }
 
   const listEl = document.getElementById('home-records');
+  if (listEl._scrollRevealCleanup) listEl._scrollRevealCleanup();
   if (records.length === 0) {
     listEl.innerHTML = emptyHTML('還沒有消費紀錄', '填寫上方表單，開始記帳吧');
   } else {
@@ -165,7 +192,11 @@ export function renderHome() {
              收合
            </button>`
           : '';
-    listEl.innerHTML = visible.map(r => dailyRecordHTML(r, balanceMap[r.id])).join('') + moreBtn;
+    listEl.innerHTML =
+      visible.map((r, i) => dailyRecordHTML(r, balanceMap[r.id], i)).join('') + moreBtn;
+    const doReveal = appState.revealHomeRecordsNext;
+    appState.revealHomeRecordsNext = false;
+    bindScrollReveal(listEl, '.record-item', { enabled: doReveal });
   }
 
   const pageHome = document.getElementById('page-home');
@@ -192,6 +223,7 @@ export function renderHome() {
 
 export function toggleHomeHistory() {
   appState.homeShowAll = !appState.homeShowAll;
+  if (appState.homeShowAll) appState.revealHomeRecordsNext = true;
   renderHome();
 }
 
@@ -231,7 +263,8 @@ function photoThumbHTML(r) {
   </button>`;
 }
 
-function dailyRecordHTML(r, runBal) {
+function dailyRecordHTML(r, runBal, recordIndex = 0) {
+  const ri = `--record-i:${recordIndex};`;
   const isHu = r.paidBy === USER_A;
   const a = parseFloat(r.amount) || 0;
 
@@ -239,7 +272,7 @@ function dailyRecordHTML(r, runBal) {
   const photoEl = photoThumbHTML(r);
 
   if (r.type === 'settlement') {
-    return `<div class="record-item is-settlement${r._voided ? ' is-voided' : ''}">
+    return `<div class="record-item is-settlement${r._voided ? ' is-voided' : ''}" style="${ri}">
       <div class="record-avatar settle">↕</div>
       <div class="record-info" ${clickAttr}>
         <div class="record-name">
@@ -261,7 +294,7 @@ function dailyRecordHTML(r, runBal) {
     const hu = parseFloat(r.paidHu) || 0;
     const zhan = parseFloat(r.paidZhan) || 0;
     const metaDetail = `胡 NT$${Math.round(hu)} ＋ 詹 NT$${Math.round(zhan)}`;
-    return `<div class="record-item${r._voided ? ' is-voided' : ''}">
+    return `<div class="record-item${r._voided ? ' is-voided' : ''}" style="${ri}">
       ${recordAvatarHTML('兩', 'split')}
       <div class="record-info" ${clickAttr}>
         <div class="record-name">
@@ -281,7 +314,7 @@ function dailyRecordHTML(r, runBal) {
   }
 
   const label = r.splitMode === '均分' ? '各付一半' : r.splitMode === '只有胡' ? '只算胡的' : '只算詹的';
-  return `<div class="record-item${r._voided ? ' is-voided' : ''}">
+  return `<div class="record-item${r._voided ? ' is-voided' : ''}" style="${ri}">
     ${recordAvatarHTML(r.paidBy, isHu ? 'me' : 'other', true)}
     <div class="record-info" ${clickAttr}>
       <div class="record-name">

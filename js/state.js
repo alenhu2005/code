@@ -17,6 +17,14 @@ export const appState = {
   homePaidBy: USER_A,
   homeSplitMode: '均分',
   homeShowAll: false,
+  /** 下次繪製日常／行程列表時，對紀錄列做捲動進場（進頁或展開更多） */
+  revealHomeRecordsNext: false,
+  /** 下次繪製行程明細消費列表時做捲動進場 */
+  revealTripExpensesNext: false,
+  /** 下次繪製行程列表時，「已結束行程」標題與銜接卡片刻進場 */
+  revealTripsSectionNext: false,
+  /** 成員目錄抽屜開啟後列表列進場（一次） */
+  revealMemberDirNext: false,
   /** 從其他分頁切換到「日常」時，結算金額是否做數字刷動 */
   animateHomeBalanceNext: false,
   /** 上次顯示在畫面上的結算金額絕對值（刷動動畫起點） */

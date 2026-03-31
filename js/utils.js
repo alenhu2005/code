@@ -10,6 +10,64 @@ export function prefersReducedMotion() {
 }
 
 /**
+ * Observe list items and reveal with stagger-friendly CSS (--record-i / --day-i etc.).
+ * Call the returned cleanup (or root._scrollRevealCleanup) before replacing innerHTML.
+ * @param {Element | null} root
+ * @param {string} selector
+ * @param {{ enabled?: boolean }} [opts]
+ */
+export function bindScrollReveal(root, selector, { enabled = true } = {}) {
+  if (!root || typeof root.querySelectorAll !== 'function') return () => {};
+  if (root._scrollRevealCleanup) {
+    root._scrollRevealCleanup();
+    root._scrollRevealCleanup = null;
+  }
+  root.removeAttribute('data-scroll-reveal');
+  const items = root.querySelectorAll(selector);
+  if (items.length === 0) return () => {};
+
+  const markVisible = () => {
+    items.forEach(el => {
+      el.classList.remove('scroll-reveal-pending');
+      el.classList.add('scroll-reveal-visible');
+    });
+  };
+
+  if (!enabled || prefersReducedMotion()) {
+    markVisible();
+    return () => {};
+  }
+
+  items.forEach(el => {
+    el.classList.add('scroll-reveal-pending');
+    el.classList.remove('scroll-reveal-visible');
+  });
+  root.setAttribute('data-scroll-reveal', 'active');
+
+  const io = new IntersectionObserver(
+    entries => {
+      for (const ent of entries) {
+        if (!ent.isIntersecting) continue;
+        const t = ent.target;
+        t.classList.remove('scroll-reveal-pending');
+        t.classList.add('scroll-reveal-visible');
+        io.unobserve(t);
+      }
+    },
+    { root: null, rootMargin: '56px 0px 72px 0px', threshold: 0.01 },
+  );
+  items.forEach(el => io.observe(el));
+
+  const cleanup = () => {
+    io.disconnect();
+    root.removeAttribute('data-scroll-reveal');
+    root._scrollRevealCleanup = null;
+  };
+  root._scrollRevealCleanup = cleanup;
+  return cleanup;
+}
+
+/**
  * Uniform integer in [0, n). Uses crypto.getRandomValues with rejection sampling so
  * each outcome has probability 1/n (no modulo bias from Math.random).
  * Falls back to Math.floor(Math.random() * n) if crypto is unavailable.

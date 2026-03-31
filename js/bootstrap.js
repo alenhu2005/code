@@ -174,6 +174,7 @@ export async function initApp() {
   updateSyncUI();
 
   if (!tryRestoreSessionFromStorage()) {
+    appState.revealHomeRecordsNext = true;
     navigate('home');
   }
 

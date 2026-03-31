@@ -1,7 +1,18 @@
 import { USER_A, USER_B } from './config.js';
 import { appState } from './state.js';
 import { todayStr } from './time.js';
-import { uid, toast, esc, jqAttr, jq, randomUniformIndex, memberToneClass, memberToneVars } from './utils.js';
+import {
+  uid,
+  toast,
+  esc,
+  jqAttr,
+  jq,
+  randomUniformIndex,
+  memberToneClass,
+  memberToneVars,
+  prefersReducedMotion,
+  bindScrollReveal,
+} from './utils.js';
 import { postRow, formatPostError } from './api.js';
 import {
   getDailyRecords,
@@ -864,6 +875,7 @@ export function toggleMemberDirectory() {
   const overlay = document.getElementById('member-dir-overlay');
   const isOpen = panel.classList.contains('is-open');
   if (isOpen) { closeMemberDirectory(); return; }
+  appState.revealMemberDirNext = true;
   renderMemberDirectory();
   overlay.classList.add('is-open');
   panel.classList.add('is-open');
@@ -1084,9 +1096,12 @@ export function memberAvatarPreviewChangePhoto() {
 
 function renderMemberDirectory() {
   const body = document.getElementById('member-dir-body');
+  const panel = document.getElementById('member-dir-panel');
   const members = getKnownMemberNames();
+  if (body._scrollRevealCleanup) body._scrollRevealCleanup();
   if (members.length === 0) {
     body.innerHTML = '<div class="member-dir-empty">尚無成員紀錄</div>';
+    appState.revealMemberDirNext = false;
     return;
   }
   body.innerHTML = members.map((name, idx) => {
@@ -1102,7 +1117,7 @@ function renderMemberDirectory() {
       : `<span class="${fbCls}" style="background:${color.bg};color:${color.fg}">${esc(name.charAt(0))}</span>`;
     const dTone = memberToneClass(rare);
     const dTv = memberToneVars(color, rare);
-    return `<div class="member-dir-item${rare ? ` member-dir-item--rare${styleCls}` : ''}${dTone}"${dTv ? ` style="${dTv}"` : ''} data-member="${esc(name)}">
+    return `<div class="member-dir-item${rare ? ` member-dir-item--rare${styleCls}` : ''}${dTone}"${dTv ? ` style="--dir-i:${idx};${dTv}"` : ` style="--dir-i:${idx}"`} data-member="${esc(name)}">
       <button type="button" class="member-dir-avatar${rare ? ` member-dir-avatar--rare${styleCls}` : ''}${dTone}" onclick="openMemberAvatarPreview(${jqAttr(name)})" title="預覽頭像" style="background:${color.bg}${dTv ? `;${dTv}` : ''}">
         ${avatarHtml}
       </button>
@@ -1120,6 +1135,10 @@ function renderMemberDirectory() {
       </div>
     </div>`;
   }).join('');
+  if (panel?.classList.contains('is-open')) {
+    bindScrollReveal(body, '.member-dir-item', { enabled: appState.revealMemberDirNext });
+    appState.revealMemberDirNext = false;
+  }
 }
 
 export async function cycleMemberColor(memberName) {
@@ -1189,9 +1208,15 @@ async function ensureRandomMemberColor(name) {
 export function toggleTripColorPicker(tripId) {
   const el = document.getElementById('tcp-' + tripId);
   if (!el) return;
-  const wasOpen = el.style.display !== 'none';
-  document.querySelectorAll('.trip-color-picker').forEach(p => { p.style.display = 'none'; });
-  if (!wasOpen) el.style.display = '';
+  const wasOpen = el.classList.contains('is-open');
+  document.querySelectorAll('.trip-color-picker').forEach(p => {
+    p.classList.remove('is-open');
+    p.setAttribute('aria-hidden', 'true');
+  });
+  if (!wasOpen) {
+    el.classList.add('is-open');
+    el.setAttribute('aria-hidden', 'false');
+  }
 }
 
 export async function setTripColor(tripId, colorId) {
@@ -1595,6 +1620,7 @@ function setEditPhotoPreview(dataUrl) {
   if (!dataUrl) {
     img.src = '';
     img.classList.add('hidden');
+    img.classList.remove('edit-photo-preview--enter');
     removeBtn.style.display = 'none';
     return;
   }
@@ -1602,6 +1628,11 @@ function setEditPhotoPreview(dataUrl) {
   img.src = dataUrl;
   img.classList.remove('hidden');
   removeBtn.style.display = '';
+  if (!prefersReducedMotion()) {
+    img.classList.remove('edit-photo-preview--enter');
+    void img.offsetWidth;
+    requestAnimationFrame(() => img.classList.add('edit-photo-preview--enter'));
+  }
 }
 
 async function fileToJpegDataUrl(file, { maxDim = 1024, quality = 0.78 } = {}) {
@@ -1689,6 +1720,11 @@ export function openEditRecord(r) {
     summary.innerHTML = `<div class="edit-summary-item">${esc(r.item || '—')}</div>`
       + `<div class="edit-summary-meta">${esc(r.date || '')}${payLine ? ' · ' + payLine : ''}${amt ? ' · NT$' + Math.round(amt) : ''}</div>`
       + splitHtml;
+    if (!prefersReducedMotion()) {
+      summary.classList.remove('edit-summary--swap');
+      void summary.offsetWidth;
+      requestAnimationFrame(() => summary.classList.add('edit-summary--swap'));
+    }
   }
 
   document.getElementById('edit-date').value = r.date || todayStr();

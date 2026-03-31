@@ -9,5 +9,20 @@ export function toggleTheme() {
   const dark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('theme', dark ? 'dark' : 'light');
   updateThemeIcon();
+  const btn = document.getElementById('theme-toggle');
+  if (
+    btn &&
+    typeof matchMedia !== 'undefined' &&
+    !matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    btn.classList.remove('theme-toggle--spin');
+    void btn.offsetWidth;
+    btn.classList.add('theme-toggle--spin');
+    if (btn._spinT) clearTimeout(btn._spinT);
+    btn._spinT = setTimeout(() => {
+      btn.classList.remove('theme-toggle--spin');
+      btn._spinT = null;
+    }, 480);
+  }
   import('./render-registry.js').then(m => m.render());
 }

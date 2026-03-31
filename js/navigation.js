@@ -30,6 +30,15 @@ export function navigate(page, tripId = null, opts = {}) {
   if (page === 'home' && typeof opts.restoreScrollY !== 'number') {
     appState.animateHomeBalanceNext = true;
   }
+  if (page === 'home' && prevPage !== 'home' && typeof opts.restoreScrollY !== 'number') {
+    appState.revealHomeRecordsNext = true;
+  }
+  if (page === 'tripDetail' && prevPage !== 'tripDetail') {
+    appState.revealTripExpensesNext = true;
+  }
+  if (page === 'trips' && prevPage !== 'trips') {
+    appState.revealTripsSectionNext = true;
+  }
   if (page === 'tripDetail' && appState.detailMultiPay) {
     appState.detailMultiPay = false;
     const tog = document.getElementById('d-multipay-toggle');

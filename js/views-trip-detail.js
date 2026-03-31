@@ -11,7 +11,7 @@ import {
 } from './data.js';
 import { computeSettlements } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
-import { esc, jq, jqAttr, memberToneClass, memberToneVars } from './utils.js';
+import { esc, jq, jqAttr, memberToneClass, memberToneVars, prefersReducedMotion, bindScrollReveal } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 import { navigate } from './navigation.js';
 import { renderTripStatsCard } from './trip-stats.js';
@@ -90,10 +90,6 @@ export function resetTripDetailAmountDraft(opts = {}) {
   }
 }
 
-function tripPrefersReducedMotion() {
-  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
 function playTripSettlementAnimations() {
   const body = document.getElementById('settlement-body');
   if (!body) return;
@@ -113,7 +109,7 @@ function playTripSettlementAnimations() {
     });
   };
 
-  if (tripPrefersReducedMotion()) {
+  if (prefersReducedMotion()) {
     applyFinal();
     return;
   }
@@ -213,7 +209,8 @@ function tripPhotoThumb(e) {
   </button>`;
 }
 
-function tripExpenseHTML(e, totalMembers) {
+function tripExpenseHTML(e, totalMembers, recordIndex = 0) {
+  const ri = `--record-i:${recordIndex};`;
   const hasCustomSplit = Array.isArray(e.splitDetails) && e.splitDetails.length > 0;
   const label = hasCustomSplit
     ? '詳細分攤'
@@ -228,7 +225,7 @@ function tripExpenseHTML(e, totalMembers) {
   if (e.payers && Array.isArray(e.payers)) {
     const payerStr = e.payers.map(p => `${esc(p.name)} NT$${Math.round(p.amount)}`).join(' ＋ ');
     const perPerson = Math.round(e.amount / (e.splitAmong.length || 1));
-    return `<div class="record-item${e._voided ? ' is-voided' : ''}">
+    return `<div class="record-item${e._voided ? ' is-voided' : ''}" style="${ri}">
       ${tripRecordAvatar('多', 'multi')}
       <div class="record-info" ${clickAttr}>
         <div class="record-name">
@@ -244,7 +241,7 @@ function tripExpenseHTML(e, totalMembers) {
     </div>`;
   }
 
-  return `<div class="record-item${e._voided ? ' is-voided' : ''}">
+  return `<div class="record-item${e._voided ? ' is-voided' : ''}" style="${ri}">
     ${tripRecordAvatar(e.paidBy, 'me')}
     <div class="record-info" ${clickAttr}>
       <div class="record-name">
@@ -268,8 +265,9 @@ function buildTripExpensesByDayHTML(expenses, trip) {
     byDay[d].push(e);
   }
   const days = Object.keys(byDay).sort().reverse();
+  let recIdx = 0;
   return days
-    .map(d => {
+    .map((d, dayIdx) => {
       const list = byDay[d];
       const sub = list.filter(e => !e._voided).reduce((s, e) => s + e.amount, 0);
       const voidN = list.filter(e => e._voided).length;
@@ -278,13 +276,13 @@ function buildTripExpensesByDayHTML(expenses, trip) {
           ? `小計 NT$${Math.round(sub).toLocaleString()}（含撤回 ${voidN} 筆）`
           : `小計 NT$${Math.round(sub).toLocaleString()}`;
       return `
-    <div class="trip-day-group">
+    <div class="trip-day-group" style="--day-i:${dayIdx}">
       <div class="trip-day-label">
         <span>${esc(d)} · ${list.length} 筆</span>
         <span class="trip-day-sub">${subLabel}</span>
       </div>
       <div class="trip-day-items">
-        ${list.map(e => tripExpenseHTML(e, trip.members.length)).join('')}
+        ${list.map(e => tripExpenseHTML(e, trip.members.length, recIdx++)).join('')}
       </div>
     </div>`;
     })
@@ -293,8 +291,9 @@ function buildTripExpensesByDayHTML(expenses, trip) {
 
 export function renderDetailMemberChips(members) {
   const el = document.getElementById('detail-member-chips');
+  if (el._scrollRevealCleanup) el._scrollRevealCleanup();
   el.innerHTML = members
-    .map(m => {
+    .map((m, i) => {
       const avatarUrl = getAvatarUrlByMemberName(m, 'trip');
       const color = getMemberColor(m);
       const rare = isHiddenMemberColorId(color.id);
@@ -303,7 +302,7 @@ export function renderDetailMemberChips(members) {
       const avCls = rare ? ` member-chip-avatar--rare${styleCls}` : '';
       const toneCls = memberToneClass(rare);
       const tv = memberToneVars(color, rare);
-      const chipStyle = tv ? ` style="${tv}"` : '';
+      const chipStyle = tv ? ` style="--chip-i:${i};${tv}"` : ` style="--chip-i:${i}"`;
       const fbStyle = tv
         ? `background:${color.bg};color:${color.fg};${tv}`
         : `background:${color.bg};color:${color.fg}`;
@@ -330,19 +329,20 @@ export function renderDetailMemberChips(members) {
 function renderDetailKnownMembers(trip) {
   const el = document.getElementById('detail-known-members');
   if (!el) return;
+  if (el._scrollRevealCleanup) el._scrollRevealCleanup();
   const known = getKnownMemberNames();
   const available = known.filter(n => !trip.members.includes(n));
   if (available.length === 0 || trip._closed) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="known-member-bar">
     <span class="known-member-bar-label">快速加入</span>
-    ${available.map(n => {
+    ${available.map((n, ki) => {
       const c = getMemberColor(n);
       const rare = isHiddenMemberColorId(c.id);
       const sk = rare ? getHiddenMemberStyleKey(c.id) : '';
       const styleCls = sk ? ` member-rare--${sk}` : '';
       const kTone = memberToneClass(rare);
       const kTv = memberToneVars(c, rare);
-      return `<button type="button" class="known-member-bar-btn${rare ? ` known-member-bar-btn--rare${styleCls}` : ''}${kTone}"${kTv ? ` style="${kTv}"` : ''} onclick="addDetailMemberByName(${jqAttr(n)})">
+      return `<button type="button" class="known-member-bar-btn${rare ? ` known-member-bar-btn--rare${styleCls}` : ''}${kTone}"${kTv ? ` style="--km-i:${ki};${kTv}"` : ` style="--km-i:${ki}"`} onclick="addDetailMemberByName(${jqAttr(n)})">
         <span class="known-member-bar-dot${rare ? ` known-member-bar-dot--rare${styleCls}` : ''}" style="background:${c.fg}">${esc(n.charAt(0))}</span>${esc(n)}
       </button>`;
     }).join('')}
@@ -519,7 +519,7 @@ function renderSettlement(members, expenses, trip) {
     .map(s => {
       const amt = Math.round(s.amount);
       const barPct = Math.round((s.amount / maxPay) * 100);
-      const coverW = tripPrefersReducedMotion() ? 100 - barPct : 100;
+      const coverW = prefersReducedMotion() ? 100 - barPct : 100;
       const repayBtn = canSettle
         ? `<button type="button" class="settle-btn settle-btn--inline" data-from="${esc(s.from)}" data-to="${esc(
             s.to,
@@ -533,7 +533,7 @@ function renderSettlement(members, expenses, trip) {
         ${memberAvatarPill(s.to, 'settlement-pill settlement-pill--payee')}
         <span class="settlement-names">${esc(s.to)}</span>
         <div class="settlement-flow-tail">
-        <span class="settlement-amount" data-settle-amt>NT$${tripPrefersReducedMotion() ? amt.toLocaleString() : '0'}</span>
+        <span class="settlement-amount" data-settle-amt>NT$${prefersReducedMotion() ? amt.toLocaleString() : '0'}</span>
         ${repayBtn}
         </div>
       </div>
@@ -862,6 +862,7 @@ export function renderTripDetail() {
 
   const payerEl = document.getElementById('trip-payer-stats');
   if (payerEl) {
+    if (payerEl._scrollRevealCleanup) payerEl._scrollRevealCleanup();
     payerEl.innerHTML = renderTripStatsCard(trip.members, expenses);
   }
 
@@ -893,11 +894,23 @@ export function renderTripDetail() {
   }
 
   const expEl = document.getElementById('detail-expenses');
+  if (expEl._scrollRevealCleanup) expEl._scrollRevealCleanup();
   if (expenses.length === 0) {
     expEl.innerHTML = emptyHTML('還沒有消費紀錄', '');
   } else {
     expEl.innerHTML = buildTripExpensesByDayHTML(expenses, trip);
   }
+
+  const doReveal = appState.revealTripExpensesNext;
+  appState.revealTripExpensesNext = false;
+  if (expenses.length > 0) {
+    bindScrollReveal(expEl, '.trip-day-group, .record-item', { enabled: doReveal });
+  }
+  const chipsEl = document.getElementById('detail-member-chips');
+  if (chipsEl) bindScrollReveal(chipsEl, '.member-chip', { enabled: doReveal });
+  const kmRoot = document.getElementById('detail-known-members');
+  if (kmRoot) bindScrollReveal(kmRoot, '.known-member-bar-btn', { enabled: doReveal });
+  if (payerEl) bindScrollReveal(payerEl, '.trip-stats-section, .payer-stats-row', { enabled: doReveal });
 }
 
 export { updatePerPerson, updateMultiPayTotal };

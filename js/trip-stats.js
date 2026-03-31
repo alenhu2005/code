@@ -47,10 +47,13 @@ export function renderTripStatsCard(members, expenses) {
     .sort((a, b) => b[1] - a[1])
     .map(([cat, amt]) => ({ cat, amount: amt, color: CAT_PIE_COLORS[cat] || '#94a3b8' }));
 
+  let statI = 0;
+  let rowI = 0;
+
   const tripPieBlock =
     pieTotal > 0 && pieSlices.length > 0
       ? `
-    <div class="trip-stats-section trip-stats-pie-section">
+    <div class="trip-stats-section trip-stats-pie-section" style="--stat-i:${statI++}">
       <div class="trip-stats-label">分類支出</div>
       <div class="trip-pie-wrap analysis-pie-wrap">
         ${makePieChartSVG(pieSlices, pieTotal, { cat: true, pct: true, amt: false })}
@@ -78,13 +81,13 @@ export function renderTripStatsCard(members, expenses) {
       : '';
 
   const prepaidBlock = `
-    <div class="trip-stats-section">
+    <div class="trip-stats-section" style="--stat-i:${statI++}">
       <div class="trip-stats-label">先付排行（佔先付合計比例）</div>
       <div class="payer-stats-list">
         ${prepaidRows
           .map((name, i) => {
             const amt = payers[name] || 0;
-            return `<div class="payer-stats-row">
+            return `<div class="payer-stats-row" style="--row-i:${rowI++}">
             <span class="payer-stats-rank">${i + 1}</span>
             <span class="payer-stats-name">${esc(name)}</span>
             <span class="payer-stats-amt">NT$${Math.round(amt).toLocaleString()}<span class="payer-stats-pct">${pct(amt)}%</span></span>
@@ -96,12 +99,12 @@ export function renderTripStatsCard(members, expenses) {
     </div>`;
 
   const shareBlock = `
-    <div class="trip-stats-section">
+    <div class="trip-stats-section" style="--stat-i:${statI++}">
       <div class="trip-stats-label">每人分攤負擔（應付）</div>
       <div class="payer-stats-list">
         ${shareRows
           .map(
-            name => `<div class="payer-stats-row payer-stats-row-plain">
+            name => `<div class="payer-stats-row payer-stats-row-plain" style="--row-i:${rowI++}">
           <span class="payer-stats-name">${esc(name)}</span>
           <span class="payer-stats-amt">NT$${Math.round(share[name] || 0).toLocaleString()}</span>
         </div>`,
@@ -111,14 +114,14 @@ export function renderTripStatsCard(members, expenses) {
     </div>`;
 
   const netBlock = `
-    <div class="trip-stats-section">
+    <div class="trip-stats-section" style="--stat-i:${statI++}">
       <div class="trip-stats-label">淨額（先付 − 應付，正為多墊、負為少付）</div>
       <div class="payer-stats-list">
         ${netRows
           .map(name => {
             const v = net[name];
             const cls = v > 0 ? 'net-pos' : v < 0 ? 'net-neg' : '';
-            return `<div class="payer-stats-row payer-stats-row-plain">
+            return `<div class="payer-stats-row payer-stats-row-plain" style="--row-i:${rowI++}">
             <span class="payer-stats-name">${esc(name)}</span>
             <span class="payer-stats-amt ${cls}">${v > 0 ? '+' : ''}${v.toLocaleString()}</span>
           </div>`;

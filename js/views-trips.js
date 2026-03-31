@@ -1,6 +1,7 @@
 import { getTrips, getTripColor, getTripPaletteColorId, TRIP_COLORS } from './data.js';
 import { esc, jq } from './utils.js';
 import { emptyHTML } from './views-shared.js';
+import { appState } from './state.js';
 
 function tripCardHTML(t, listIndex = 0) {
   const color = getTripColor(t.id);
@@ -28,7 +29,9 @@ function tripCardHTML(t, listIndex = 0) {
       <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--text-muted);flex-shrink:0" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
     </div>
   </div>
-  <div class="trip-color-picker" id="tcp-${esc(t.id)}" style="display:none">${colorDots}</div>
+  <div class="trip-color-picker" id="tcp-${esc(t.id)}" aria-hidden="true">
+    <div class="trip-color-picker-inner">${colorDots}</div>
+  </div>
   </div>`;
 }
 
@@ -46,9 +49,19 @@ export function renderTrips() {
   if (active.length > 0) {
     html += active.map(t => tripCardHTML(t, i++)).join('');
   }
+  const revealSection = closed.length > 0 && appState.revealTripsSectionNext;
+  if (appState.revealTripsSectionNext) appState.revealTripsSectionNext = false;
   if (closed.length > 0) {
     html += `<div class="trip-section-label">已結束行程</div>`;
     html += closed.map(t => tripCardHTML(t, i++)).join('');
   }
   el.innerHTML = html;
+  if (revealSection) {
+    el.classList.add('trips-list-reveal-section');
+    window.clearTimeout(el._sectionRevealT);
+    el._sectionRevealT = window.setTimeout(() => {
+      el.classList.remove('trips-list-reveal-section');
+      el._sectionRevealT = null;
+    }, 720);
+  }
 }

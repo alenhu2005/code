@@ -181,5 +181,5 @@ export function guessCategoryFromItem(item) {
 export function categoryBadgeHTML(cat) {
   if (!cat) return '';
   const st = CATEGORY_STYLE[cat] || 'background:#f3f4f6;color:#4b5563';
-  return `<span style="${st};font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;margin-left:4px;vertical-align:middle;white-space:nowrap">${esc(cat)}</span>`;
+  return `<span class="category-badge" style="${st};font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;margin-left:4px;vertical-align:middle;white-space:nowrap">${esc(cat)}</span>`;
 }

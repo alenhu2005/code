@@ -833,6 +833,106 @@
       transition: background 0.22s ease;
     }
     .record-item:last-child { border-bottom: none; }
+
+    /* Scroll-driven list reveal (see utils.bindScrollReveal) */
+    [data-scroll-reveal="active"] .record-item.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .trip-day-group.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .member-chip.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .known-member-bar-btn.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .trip-stats-section.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .payer-stats-row.scroll-reveal-pending,
+    [data-scroll-reveal="active"] .member-dir-item.scroll-reveal-pending {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    [data-scroll-reveal="active"] .record-item.scroll-reveal-visible {
+      animation: recordRowIn 0.38s var(--ease-out) both;
+      animation-delay: calc(min(var(--record-i, 0), 24) * 0.02s);
+    }
+    [data-scroll-reveal="active"] .record-item.scroll-reveal-visible .badge,
+    [data-scroll-reveal="active"] .record-item.scroll-reveal-visible .category-badge {
+      animation: badgePopIn 0.34s var(--ease-out) both;
+      animation-delay: calc(min(var(--record-i, 0), 24) * 0.02s + 0.05s);
+    }
+    [data-scroll-reveal="active"] .trip-day-group.scroll-reveal-visible {
+      animation: tripDayGroupIn 0.4s var(--ease-out) both;
+      animation-delay: calc(min(var(--day-i, 0), 20) * 0.025s);
+    }
+    [data-scroll-reveal="active"] .member-chip.scroll-reveal-visible {
+      animation: chipPopIn 0.36s var(--ease-out) both;
+      animation-delay: calc(min(var(--chip-i, 0), 16) * 0.03s);
+    }
+    [data-scroll-reveal="active"] .known-member-bar-btn.scroll-reveal-visible {
+      animation: kmBtnIn 0.34s var(--ease-out) both;
+      animation-delay: calc(min(var(--km-i, 0), 14) * 0.035s);
+    }
+    [data-scroll-reveal="active"] .trip-stats-section.scroll-reveal-visible {
+      animation: tripStatSectionIn 0.42s var(--ease-out) both;
+      animation-delay: calc(min(var(--stat-i, 0), 8) * 0.04s);
+    }
+    [data-scroll-reveal="active"] .payer-stats-row.scroll-reveal-visible {
+      animation: payerStatRowIn 0.36s var(--ease-out) both;
+      animation-delay: calc(min(var(--row-i, 0), 18) * 0.025s);
+    }
+    [data-scroll-reveal="active"] .member-dir-item.scroll-reveal-visible {
+      animation: memberDirRowIn 0.35s var(--ease-out) both;
+      animation-delay: calc(min(var(--dir-i, 0), 20) * 0.03s);
+    }
+    @keyframes recordRowIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tripDayGroupIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes badgePopIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes chipPopIn {
+      from { opacity: 0; transform: scale(0.94) translateY(3px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes kmBtnIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes tripStatSectionIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes payerStatRowIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes memberDirRowIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .header-meta#home-count.home-count--tick {
+      animation: homeCountTick 0.38s var(--ease-out) both;
+    }
+    @keyframes homeCountTick {
+      0%, 100% { color: var(--text-muted); transform: none; }
+      40% { color: var(--primary); transform: scale(1.06); }
+    }
+    #balance-icon-wrap.balance-icon--pulse {
+      animation: balanceIconPulse 0.42s var(--ease-out) both;
+    }
+    @keyframes balanceIconPulse {
+      0%, 100% { transform: scale(1); }
+      45% { transform: scale(1.08); }
+    }
+    #theme-toggle.theme-toggle--spin svg {
+      animation: themeIconSpin 0.45s var(--ease-out) both;
+    }
+    @keyframes themeIconSpin {
+      from { transform: rotate(-56deg); opacity: 0.35; }
+      to { transform: rotate(0); opacity: 1; }
+    }
+
     .record-avatar {
       width: 32px; height: 32px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
@@ -1250,10 +1350,27 @@
     .trip-icon svg { width: 22px; height: 22px; }
 
     .trip-color-picker {
-      display: flex; justify-content: center; gap: 10px;
-      padding: 8px 16px 10px;
-      background: var(--bg-secondary); border-radius: 0 0 12px 12px;
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.28s var(--ease-soft), opacity 0.22s ease;
+      opacity: 0;
+      pointer-events: none;
       margin-top: -4px;
+      background: var(--bg-secondary);
+      border-radius: 0 0 12px 12px;
+    }
+    .trip-color-picker.is-open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .trip-color-picker-inner {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 16px 10px;
     }
     .trip-color-dot {
       width: 24px; height: 24px; border-radius: 50%;
@@ -1270,6 +1387,17 @@
       margin: 20px 0 10px; padding: 0 18px;
       font-size: 12px; font-weight: 700; color: var(--text-muted);
       letter-spacing: .06em; text-transform: uppercase;
+    }
+    .trips-list-reveal-section .trip-section-label {
+      animation: tripSectionLabelIn 0.44s var(--ease-out) both;
+    }
+    @keyframes tripSectionLabelIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .trips-list-reveal-section .trip-section-label + .trip-card-wrap .trip-card {
+      animation: tripCardIn 0.42s var(--ease-out) both;
+      animation-delay: calc(min(var(--trip-i, 0), 24) * 0.03s + 0.08s);
     }
     .trip-info { flex: 1; min-width: 0; }
     .trip-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -2190,14 +2318,20 @@
     .empty-state {
       padding: 48px 16px; text-align: center;
       display: flex; flex-direction: column; align-items: center; gap: 10px;
+      animation: emptyStateIn 0.52s var(--ease-out) both;
     }
     .empty-icon {
       width: 56px; height: 56px; border-radius: 50%;
       background: #f3f4f6; display: flex; align-items: center; justify-content: center;
+      animation: emptyStateIn 0.52s var(--ease-out) 0.05s both;
     }
     .empty-icon svg { width: 28px; height: 28px; fill: var(--text-muted); }
-    .empty-title { font-size: 14px; font-weight: 500; }
-    .empty-sub { font-size: 12px; color: var(--text-muted); }
+    .empty-title { font-size: 14px; font-weight: 500; animation: emptyStateIn 0.52s var(--ease-out) 0.08s both; }
+    .empty-sub { font-size: 12px; color: var(--text-muted); animation: emptyStateIn 0.52s var(--ease-out) 0.11s both; }
+    @keyframes emptyStateIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     /* ── Bottom nav ── */
     #bottom-nav {
@@ -2469,6 +2603,13 @@
       display: flex;
       animation: overlayIn 0.22s ease both;
     }
+    #dialog-overlay.open.closing {
+      pointer-events: none;
+      animation: overlayOut 0.28s ease both;
+    }
+    #dialog-overlay.open.closing .dialog {
+      animation: sheetDown 0.3s var(--ease-soft) both;
+    }
     #alert-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
       z-index: 1150; display: none; align-items: flex-end; justify-content: center;
@@ -2476,6 +2617,13 @@
     #alert-overlay.open {
       display: flex;
       animation: overlayIn 0.22s ease both;
+    }
+    #alert-overlay.open.closing {
+      pointer-events: none;
+      animation: overlayOut 0.28s ease both;
+    }
+    #alert-overlay.open.closing .dialog {
+      animation: sheetDown 0.3s var(--ease-soft) both;
     }
     .alert-dialog .btn-primary {
       width: 100%; height: 42px; font-size: 14px; margin-top: 4px;
@@ -2487,6 +2635,10 @@
     @keyframes overlayOut {
       from { opacity: 1; }
       to { opacity: 0; }
+    }
+    @keyframes sheetDown {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(18px); opacity: 0; }
     }
     .dialog {
       background: var(--surface); border-radius: 16px 16px 0 0;
@@ -2606,6 +2758,13 @@
     .edit-summary {
       background: var(--bg-secondary); border-radius: 10px;
       padding: 12px 14px; margin-bottom: 16px;
+    }
+    .edit-summary.edit-summary--swap {
+      animation: editSummarySwap 0.36s var(--ease-out) both;
+    }
+    @keyframes editSummarySwap {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .edit-summary-item { font-size: 15px; font-weight: 600; }
     .edit-summary-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
@@ -2889,6 +3048,13 @@
       display: flex; gap: 10px; align-items: center;
       margin-top: 8px;
     }
+    .edit-photo-preview.edit-photo-preview--enter {
+      animation: editPhotoPreviewIn 0.32s var(--ease-out) both;
+    }
+    @keyframes editPhotoPreviewIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to { opacity: 1; transform: scale(1); }
+    }
     .edit-photo-preview {
       width: 72px; height: 54px; object-fit: cover;
       border-radius: 12px; border: 1px solid var(--border);
@@ -3085,7 +3251,9 @@
       html { scroll-behavior: auto; }
       .page.active,
       #dialog-overlay.open,
+      #dialog-overlay.open.closing,
       #alert-overlay.open,
+      #alert-overlay.open.closing,
       .member-preview-overlay.open,
       .member-avatar-preview-overlay.open,
       .member-avatar-preview-overlay.open .member-avatar-preview-panel,
@@ -3166,6 +3334,26 @@
       .nav-btn,
       .btn-toggle,
       .split-chip,
+      [data-scroll-reveal="active"] .record-item.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .record-item.scroll-reveal-visible .badge,
+      [data-scroll-reveal="active"] .record-item.scroll-reveal-visible .category-badge,
+      [data-scroll-reveal="active"] .trip-day-group.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .member-chip.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .known-member-bar-btn.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .trip-stats-section.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .payer-stats-row.scroll-reveal-visible,
+      [data-scroll-reveal="active"] .member-dir-item.scroll-reveal-visible,
+      .empty-state,
+      .empty-icon,
+      .empty-title,
+      .empty-sub,
+      .header-meta#home-count.home-count--tick,
+      #balance-icon-wrap.balance-icon--pulse,
+      #theme-toggle.theme-toggle--spin svg,
+      .edit-summary.edit-summary--swap,
+      .edit-photo-preview.edit-photo-preview--enter,
+      .trips-list-reveal-section .trip-section-label,
+      .trips-list-reveal-section .trip-section-label + .trip-card-wrap .trip-card,
       .trip-card,
       .record-item,
       .analysis-stat-card,
@@ -3176,6 +3364,13 @@
       .toggle-btn {
         animation: none !important;
         transition-duration: 0.01ms !important;
+      }
+      .trip-color-picker {
+        transition: none !important;
+      }
+      .trip-color-picker.is-open {
+        opacity: 1 !important;
+        grid-template-rows: 1fr !important;
       }
     }
 
