@@ -263,7 +263,15 @@ export function renderTripLotteryCard(trip) {
 
   pop.innerHTML = `
     <div class="trip-lottery-popover-inner">
-      <div class="trip-lottery-popover-title">抽籤</div>
+      <div class="trip-lottery-popover-title trip-lottery-popover-title--nbomb-secret"
+        onclick="nbombSecretLotteryTitleTap()"
+        onmousedown="nbombSecretLotteryTitlePressStart()"
+        onmouseup="nbombSecretLotteryTitlePressEnd()"
+        onmouseleave="nbombSecretLotteryTitlePressEnd()"
+        ontouchstart="nbombSecretLotteryTitlePressStart()"
+        ontouchend="nbombSecretLotteryTitlePressEnd()"
+        ontouchcancel="nbombSecretLotteryTitlePressEnd()"
+      >抽籤</div>
       <div id="trip-lottery-display" class="trip-lottery-display trip-lottery-display--popover" aria-live="polite" aria-atomic="true">
         <span id="trip-lottery-result-line">—</span>
       </div>

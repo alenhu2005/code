@@ -17,6 +17,17 @@ import {
   addToTripLotteryPoolFromInput,
   addToTripLotteryPoolFromSelect,
 } from './trip-lottery.js';
+import {
+  openTripNumberBomb,
+  closeNumberBombGame,
+  nbombSyncSetupPanels,
+  nbombStart,
+  nbombGuess,
+  nbombAgain,
+  nbombSecretLotteryTitleTap,
+  nbombSecretLotteryTitlePressStart,
+  nbombSecretLotteryTitlePressEnd,
+} from './trip-play-number-bomb.js';
 
 let lbScale = 1, lbX = 0, lbY = 0, lbPinchDist = 0, lbPanning = false, lbStartX = 0, lbStartY = 0, lbOrigX = 0, lbOrigY = 0;
 
@@ -215,4 +226,13 @@ Object.assign(window, {
   removeFromTripLotteryPool,
   addToTripLotteryPoolFromInput,
   addToTripLotteryPoolFromSelect,
+  openTripNumberBomb,
+  closeNumberBombGame,
+  nbombSyncSetupPanels,
+  nbombStart,
+  nbombGuess,
+  nbombAgain,
+  nbombSecretLotteryTitleTap,
+  nbombSecretLotteryTitlePressStart,
+  nbombSecretLotteryTitlePressEnd,
 });

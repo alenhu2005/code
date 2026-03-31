@@ -401,6 +401,149 @@
     #page-trip-detail .trip-lottery-trigger svg {
       display: block;
     }
+    /* 出遊：數字炸彈（全螢幕；入口在抽籤浮層底部） */
+    .trip-number-bomb-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      background: var(--bg);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      box-sizing: border-box;
+    }
+    .trip-number-bomb-overlay[hidden] {
+      display: none !important;
+    }
+    .trip-number-bomb-inner {
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    .trip-number-bomb-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .trip-number-bomb-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    .trip-number-bomb-section {
+      margin-bottom: 18px;
+    }
+    .trip-number-bomb-select {
+      width: 100%;
+      max-width: 100%;
+    }
+    .trip-number-bomb-custom-range {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .trip-number-bomb-custom-range .form-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .trip-number-bomb-tilde {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .trip-number-bomb-members {
+      margin: 8px 0 0;
+      padding-left: 1.25rem;
+    }
+    .trip-number-bomb-warn {
+      color: var(--text-muted);
+      margin: 8px 0 0;
+    }
+    .trip-number-bomb-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 8px 0 0;
+    }
+    .trip-number-bomb-actions {
+      margin-top: 24px;
+    }
+    .trip-number-bomb-actions--ended {
+      margin-top: 20px;
+    }
+    .trip-number-bomb-range {
+      font-size: 1.1rem;
+      line-height: 1.5;
+      margin: 0 0 20px;
+      text-align: center;
+    }
+    .trip-number-bomb-turn {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .trip-number-bomb-turn-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .trip-number-bomb-turn-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .trip-number-bomb-turn-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .trip-number-bomb-guess-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .trip-number-bomb-guess-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .trip-number-bomb-history {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 13px;
+    }
+    .trip-number-bomb-history-item {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .trip-number-bomb-history-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .trip-number-bomb-history-guess {
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+    }
+    .trip-number-bomb-history-res {
+      min-width: 3em;
+      text-align: right;
+      color: var(--text-muted);
+    }
+    .trip-number-bomb-inner--ended .trip-number-bomb-boom {
+      text-align: center;
+      font-size: 2.5rem;
+      line-height: 1.2;
+      margin: 8px 0 12px;
+    }
+    .trip-number-bomb-ended-line,
+    .trip-number-bomb-ended-bomb {
+      text-align: center;
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
     .trip-lottery-popover {
       position: fixed;
       left: 50%;
@@ -437,6 +580,11 @@
       font-weight: 700;
       color: var(--text);
       margin-bottom: 6px;
+    }
+    .trip-lottery-popover-title--nbomb-secret {
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
     }
     .trip-lottery-hint--popover {
       margin-bottom: 10px;
@@ -661,7 +809,6 @@
       flex: 1;
       min-width: 120px;
     }
-
     /* ── Forms ── */
     .form-group { margin-bottom: 14px; }
     .form-group:last-child { margin-bottom: 0; }
@@ -1326,19 +1473,29 @@
     /* ── Trip cards ── */
     .trip-card {
       padding: 14px 18px; display: flex; align-items: center; gap: 14px;
-      border-bottom: 1px solid var(--border); cursor: pointer;
+      cursor: pointer;
       transition: background 0.2s ease, transform 0.18s var(--ease-soft);
       animation: tripCardIn 0.38s var(--ease-out) both;
       animation-delay: calc(min(var(--trip-i, 0), 24) * 0.03s);
     }
-    .trip-card:last-child { border-bottom: none; }
-    .trip-card:hover { background: var(--bg-secondary); }
+    /* 分隔線放在 wrap 上：.trip-card 後方還有 .trip-color-picker，:last-child 永遠套不到卡片本體 */
+    .trip-card-wrap {
+      position: relative;
+      transition: background 0.2s ease;
+    }
+    .trip-card-wrap:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+    /* hover 整列含收合色盤區：色盤 opacity:0 時會透出底層，只染 .trip-card 會上灰下白 */
+    .trip-card-wrap:hover,
+    .trip-card-wrap:focus-within {
+      background: var(--bg-secondary);
+    }
     .trip-card:active { transform: scale(0.992); }
     @keyframes tripCardIn {
       from { opacity: 0; transform: translateX(-8px); }
       to { opacity: 1; transform: translateX(0); }
     }
-    .trip-card-wrap { position: relative; }
     .trip-icon {
       width: 44px; height: 44px; border-radius: 50%;
       background: var(--primary-light); display: flex; align-items: center;
@@ -1349,24 +1506,24 @@
     .trip-icon:active { transform: scale(0.88); }
     .trip-icon svg { width: 22px; height: 22px; }
 
+    /* 收合時高度必須實際為 0：0fr + 負 margin 易造成視覺「下方多一塊」 */
     .trip-color-picker {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.28s var(--ease-soft), opacity 0.22s ease;
+      max-height: 0;
+      overflow: hidden;
       opacity: 0;
       pointer-events: none;
-      margin-top: -4px;
+      margin: 0;
+      padding: 0;
       background: var(--bg-secondary);
       border-radius: 0 0 12px 12px;
+      transition: max-height 0.3s var(--ease-soft), opacity 0.22s ease;
     }
     .trip-color-picker.is-open {
-      grid-template-rows: 1fr;
+      max-height: 72px;
       opacity: 1;
       pointer-events: auto;
     }
     .trip-color-picker-inner {
-      min-height: 0;
-      overflow: hidden;
       display: flex;
       justify-content: center;
       gap: 10px;
@@ -3124,7 +3281,10 @@
       color: var(--text);
     }
     html.dark .badge { background: #334155; color: #cbd5e1; }
-    html.dark .trip-card:hover { background: rgba(255,255,255,.04); }
+    html.dark .trip-card-wrap:hover,
+    html.dark .trip-card-wrap:focus-within {
+      background: rgba(255,255,255,.04);
+    }
     html.dark .trip-color-picker { background: var(--bg-tertiary); }
     html.dark .trip-color-dot.active { border-color: var(--surface); box-shadow: 0 0 0 2px #cbd5e1; }
     html.dark .known-member-bar-btn {
@@ -3370,7 +3530,7 @@
       }
       .trip-color-picker.is-open {
         opacity: 1 !important;
-        grid-template-rows: 1fr !important;
+        max-height: 72px !important;
       }
     }
 

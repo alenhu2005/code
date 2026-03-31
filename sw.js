@@ -1,5 +1,5 @@
 // Bump this to force clients to refresh cached assets.
-const CACHE_NAME = 'ledger-v47';
+const CACHE_NAME = 'ledger-v48';
 
 const STATIC_ASSETS = [
   './',
@@ -29,6 +29,7 @@ const STATIC_ASSETS = [
   './js/views-shared.js',
   './js/trip-stats.js',
   './js/trip-lottery.js',
+  './js/trip-play-number-bomb.js',
   './js/pie-chart.js',
   './js/category.js',
   './js/theme.js',
