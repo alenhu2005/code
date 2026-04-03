@@ -108,4 +108,41 @@ describe('getTripExpensesFromRows', () => {
     expect(ex[0]._voided).toBe(true);
     expect(ex[0].amount).toBe(100);
   });
+
+  it('同一 id 多筆 add 只顯示一筆（試算表重複寫入）', () => {
+    const dup = {
+      type: 'tripExpense',
+      action: 'add',
+      id: 'e-dup',
+      tripId: 't1',
+      amount: '50',
+      paidBy: '甲',
+      splitAmong: '["甲","乙"]',
+      date: '2024-02-01',
+      item: '麻將',
+    };
+    const rows = [dup, { ...dup }, { type: 'tripExpense', action: 'void', id: 'e-dup' }];
+    const ex = getTripExpensesFromRows('t1', rows);
+    expect(ex).toHaveLength(1);
+    expect(ex[0]._voided).toBe(true);
+  });
+});
+
+describe('getDailyRecordsFromRows duplicate add id', () => {
+  it('同一 id 多筆 add 只保留一筆', () => {
+    const a = {
+      type: 'daily',
+      action: 'add',
+      id: 'd1',
+      date: '2024-06-01',
+      amount: 10,
+      paidBy: '胡',
+      splitMode: '均分',
+      item: '早',
+    };
+    const rows = [a, { ...a, amount: 99 }];
+    const recs = getDailyRecordsFromRows(rows);
+    expect(recs).toHaveLength(1);
+    expect(recs[0].amount).toBe(10);
+  });
 });

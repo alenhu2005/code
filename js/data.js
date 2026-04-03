@@ -5,6 +5,26 @@ import { parseArr, randomUniformIndex } from './utils.js';
 import { USER_A, USER_B } from './config.js';
 
 /**
+ * 試算表／重試 POST 可能造成同一 id 多筆 add；顯示與結算只保留第一筆。
+ * @param {import('./model.js').LedgerRow[]} addRows
+ */
+function dedupeLedgerAddsById(addRows) {
+  const seen = new Set();
+  const out = [];
+  for (const r of addRows) {
+    const id = r?.id != null ? String(r.id).trim() : '';
+    if (!id) {
+      out.push(r);
+      continue;
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(r);
+  }
+  return out;
+}
+
+/**
  * 由事件列推導日常帳顯示用紀錄（不依賴 appState）。
  * @param {import('./model.js').LedgerRow[]} allRows
  */
@@ -23,8 +43,10 @@ export function getDailyRecordsFromRows(allRows) {
       ...(e.category !== undefined ? { category: e.category } : {}),
     };
   }
-  return allRows
-    .filter(r => DAILY_TYPES.has(r.type) && r.action === 'add' && !hardDelIds.has(r.id))
+  const adds = dedupeLedgerAddsById(
+    allRows.filter(r => DAILY_TYPES.has(r.type) && r.action === 'add' && !hardDelIds.has(r.id)),
+  );
+  return adds
     .map(r => {
       let rec = voidIds.has(r.id) ? { ...r, _voided: true } : r;
       if (editMap[r.id]) rec = { ...rec, ...editMap[r.id] };
@@ -65,8 +87,10 @@ export function buildTripFromRows(tripRow, allRows) {
 
 export function getTripsFromRows(allRows) {
   const delIds = new Set(allRows.filter(r => r.type === 'trip' && r.action === 'delete').map(r => r.id));
-  return allRows
-    .filter(r => r.type === 'trip' && r.action === 'add' && !delIds.has(r.id))
+  const adds = dedupeLedgerAddsById(
+    allRows.filter(r => r.type === 'trip' && r.action === 'add' && !delIds.has(r.id)),
+  );
+  return adds
     .map(r => buildTripFromRows(r, allRows))
     .reverse();
 }
@@ -106,10 +130,12 @@ export function getTripExpensesFromRows(tripId, allRows) {
       ...(e.category !== undefined ? { category: e.category } : {}),
     };
   }
-  return allRows
-    .filter(
+  const adds = dedupeLedgerAddsById(
+    allRows.filter(
       r => r.type === 'tripExpense' && r.action === 'add' && r.tripId === tripId && !hardDelIds.has(r.id),
-    )
+    ),
+  );
+  return adds
     .map(r => {
       let payers = r.payers;
       if (typeof payers === 'string') {
