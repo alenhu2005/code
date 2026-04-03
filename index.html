@@ -90,10 +90,11 @@
           <option value="購物">🛍 購物</option>
           <option value="娛樂">🎉 娛樂</option>
           <option value="生活">🏠 生活</option>
+          <option value="賭博">🎰 賭博</option>
           <option value="其他">📦 其他</option>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="edit-note-photo-group">
         <label class="form-label">備注</label>
         <div class="edit-note-photo-row">
           <input type="text" id="edit-note" class="form-input" placeholder="選填">
@@ -135,7 +136,7 @@
       <div class="dialog-actions">
         <button type="button" class="btn btn-destructive" id="edit-void-btn" onclick="voidEditingRecord()" style="display:none">撤回</button>
         <button class="btn btn-outline" onclick="closeEditRecord()">取消</button>
-        <button class="btn btn-primary" onclick="submitEditRecord()">儲存</button>
+        <button type="button" class="btn btn-primary" id="edit-submit-btn" onclick="submitEditRecord()">儲存</button>
       </div>
     </div>
   </div>
@@ -443,14 +444,17 @@
 
       <!-- Add expense form -->
       <div class="card" id="add-expense-card">
-        <div class="card-header">
+        <div class="card-header card-header--toggle-row" id="detail-form-header-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="detail-form" title="收合／展開新增消費" onclick="tripDetailFormHeaderClick(event)" onkeydown="tripDetailFormHeaderKeydown(event)">
           <div class="card-title">
-            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             新增消費
           </div>
-          <button class="toggle-btn" onclick="toggleCollapsible('detail-form','detail-toggle-icon')">
-            <svg id="detail-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
-          </button>
+          <div class="card-header-trail">
+            <button type="button" id="d-gambling-toggle" class="btn btn-outline btn-sm d-gambling-toggle" onclick="event.stopPropagation(); toggleDetailGamblingMode()" aria-pressed="false" title="切換賭博模式（文案與分類為賭博）">賭博模式</button>
+            <span class="toggle-btn toggle-btn--header-decor" aria-hidden="true">
+              <svg id="detail-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+            </span>
+          </div>
         </div>
         <div id="detail-form" class="collapsible-panel is-open">
           <div class="collapsible-panel__inner card-body">
@@ -470,24 +474,24 @@
           </div>
           <div class="form-group">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-              誰先付錢？
-              <button type="button" id="d-multipay-toggle" onclick="toggleMultiPay()" style="background:none;border:1px solid var(--border);border-radius:99px;color:var(--text-muted);font-size:11px;cursor:pointer;padding:2px 8px;font-weight:500">多人出款</button>
+              <span id="d-label-paidby">誰先付錢？</span>
+              <button type="button" id="d-multipay-toggle" onclick="toggleMultiPay()" style="background:none;border:1px solid var(--border);border-radius:99px;color:var(--text-muted);font-size:11px;cursor:pointer;padding:2px 8px;font-weight:500"><span id="d-label-multipay-toggle">多人出款</span></button>
             </label>
             <div id="d-paidby-group">
               <div id="d-paidby-toggles" class="btn-group btn-group-payer" role="group" aria-label="誰先付錢"></div>
             </div>
             <div id="d-multipay-group" style="display:none; margin-top:10px">
               <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-                各自出了多少？
-                <button type="button" onclick="addPayerRow()" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;font-weight:600">＋ 新增</button>
+                <span id="d-label-payers-sub">各自出了多少？</span>
+                <button type="button" id="d-add-payer-row-btn" onclick="addPayerRow()" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;font-weight:600">＋ 新增</button>
               </label>
               <div id="d-payers-list" class="payer-list"></div>
             </div>
           </div>
           <div class="form-group">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
-              誰要分攤？
-              <button type="button" id="d-split-mode-toggle" onclick="toggleDetailSplitMode()" style="background:none;border:1px solid var(--border);border-radius:99px;color:var(--text-muted);font-size:11px;cursor:pointer;padding:2px 8px;font-weight:500">詳細分攤</button>
+              <span id="d-label-split">誰要分攤？</span>
+              <button type="button" id="d-split-mode-toggle" onclick="toggleDetailSplitMode()" style="background:none;border:1px solid var(--border);border-radius:99px;color:var(--text-muted);font-size:11px;cursor:pointer;padding:2px 8px;font-weight:500"><span id="d-label-split-mode">詳細分攤</span></button>
             </label>
             <div id="d-split-chips" class="split-chips"></div>
             <div id="d-split-custom-list" class="split-custom-list" style="display:none"></div>
@@ -503,28 +507,39 @@
       </div>
 
       <!-- Expense history -->
-      <div>
-        <div class="section-header" style="margin-bottom:8px">
-          <div class="section-title">
-            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+      <div class="card" id="detail-expenses-card">
+        <button type="button" class="card-header card-header--toggle" id="detail-expenses-header-toggle" onclick="toggleCollapsible('detail-expenses-panel','detail-expenses-toggle-icon','detail-expenses-header-toggle')" aria-expanded="true" aria-controls="detail-expenses-panel" title="收合／展開歷史紀錄">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
             歷史紀錄
+          </span>
+          <span class="card-header-trail">
+            <span class="detail-expenses-hint">依日期分組</span>
+            <span class="toggle-btn toggle-btn--header-decor" aria-hidden="true">
+              <svg id="detail-expenses-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+            </span>
+          </span>
+        </button>
+        <div id="detail-expenses-panel" class="collapsible-panel is-open">
+          <div class="collapsible-panel__inner detail-expenses-panel-inner">
+            <div id="detail-expenses"></div>
           </div>
-          <span style="font-size:11px;color:var(--text-muted);font-weight:500">依日期分組</span>
         </div>
-        <div class="card" id="detail-expenses"></div>
       </div>
 
       <!-- Trip stats (below 歷史紀錄) -->
       <div class="card" id="trip-payer-card">
-        <div class="card-header">
-          <div class="card-title">
-            <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+        <button type="button" class="card-header card-header--toggle" id="trip-stats-header-toggle" onclick="toggleCollapsible('trip-stats-body','trip-stats-toggle-icon','trip-stats-header-toggle')" aria-expanded="false" aria-controls="trip-stats-body" title="收合／展開出遊統計">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
             出遊統計
-          </div>
-          <button type="button" class="toggle-btn" onclick="toggleCollapsible('trip-stats-body','trip-stats-toggle-icon')" aria-expanded="false" aria-controls="trip-stats-body">
-            <svg id="trip-stats-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-          </button>
-        </div>
+          </span>
+          <span class="card-header-trail">
+            <span class="toggle-btn toggle-btn--header-decor" aria-hidden="true">
+              <svg id="trip-stats-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+            </span>
+          </span>
+        </button>
         <div id="trip-stats-body" class="collapsible-panel">
           <div class="collapsible-panel__inner trip-stats-panel-inner">
             <div id="trip-payer-stats"></div>

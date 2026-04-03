@@ -1,4 +1,5 @@
-import { USER_A } from './config.js';
+import { USER_A, USER_B } from './config.js';
+import { GAMBLING_CATEGORY } from './category.js';
 
 function computeExpenseShares(expense) {
   const details = Array.isArray(expense.splitDetails)
@@ -149,4 +150,103 @@ export function computeTripDaySubtotals(expenses) {
     byDay[d] += e.amount;
   }
   return byDay;
+}
+
+/**
+ * 單筆日常支出對結算餘額的增量（與 {@link computeBalance} 內日常邏輯一致；正＝詹欠胡）。
+ * 不含 settlement。
+ */
+export function dailyExpenseBalanceDeltaForUserA(r) {
+  if (!r || r._voided || r.type !== 'daily') return 0;
+  const a = parseFloat(r.amount) || 0;
+  if (r.splitMode === '兩人付') {
+    const hu = parseFloat(r.paidHu) || 0;
+    const zhan = parseFloat(r.paidZhan) || 0;
+    return (hu - zhan) / 2;
+  }
+  let shareHu = 0;
+  let shareZhan = 0;
+  if (r.splitMode === '均分') {
+    shareHu = a / 2;
+    shareZhan = a / 2;
+  } else if (r.splitMode === '只有胡') {
+    shareHu = a;
+  } else {
+    shareZhan = a;
+  }
+  if (r.paidBy === USER_A) return shareZhan;
+  return -shareHu;
+}
+
+/**
+ * 日常帳：僅分類為賭博之紀錄，依結算邏輯加總每人贏／輸／淨（胡、詹）。
+ */
+export function accumulateDailyGamblingWinLose(records) {
+  let winA = 0;
+  let loseA = 0;
+  let winB = 0;
+  let loseB = 0;
+  for (const r of records) {
+    if (r._voided || r.type !== 'daily') continue;
+    const cat = typeof r.category === 'string' ? r.category.trim() : '';
+    if (cat !== GAMBLING_CATEGORY) continue;
+    const dA = dailyExpenseBalanceDeltaForUserA(r);
+    if (dA > 0.01) {
+      winA += dA;
+      loseB += dA;
+    } else if (dA < -0.01) {
+      loseA += -dA;
+      winB += -dA;
+    }
+  }
+  return {
+    [USER_A]: { win: winA, lose: loseA, net: winA - loseA },
+    [USER_B]: { win: winB, lose: loseB, net: winB - loseB },
+  };
+}
+
+/**
+ * 出遊消費：僅 category 為賭博者。每人淨額＝（作為贏家先拿／代收）−（分攤負擔）。
+ */
+export function computeTripGamblingWinLoseByMember(expenses) {
+  const win = {};
+  const lose = {};
+  for (const e of expenses) {
+    if (e._voided) continue;
+    if (e.category !== GAMBLING_CATEGORY) continue;
+    const shares = computeExpenseShares(e);
+    const shareMap = {};
+    for (const s of shares) {
+      shareMap[s.name] = (shareMap[s.name] || 0) + s.amount;
+    }
+    const payerMap = {};
+    if (e.payers && Array.isArray(e.payers)) {
+      for (const p of e.payers) {
+        const n = p && String(p.name || '').trim();
+        if (!n) continue;
+        payerMap[n] = (payerMap[n] || 0) + (parseFloat(p.amount) || 0);
+      }
+    } else if (e.paidBy && e.paidBy !== '多人') {
+      payerMap[e.paidBy] = (payerMap[e.paidBy] || 0) + (parseFloat(e.amount) || 0);
+    }
+    const names = new Set([...Object.keys(payerMap), ...Object.keys(shareMap)]);
+    for (const n of names) {
+      const paid = payerMap[n] || 0;
+      const sh = shareMap[n] || 0;
+      const net = paid - sh;
+      if (net > 0.01) {
+        win[n] = (win[n] || 0) + net;
+      } else if (net < -0.01) {
+        lose[n] = (lose[n] || 0) + -net;
+      }
+    }
+  }
+  const allNames = new Set([...Object.keys(win), ...Object.keys(lose)]);
+  const out = {};
+  for (const n of allNames) {
+    const w = win[n] || 0;
+    const l = lose[n] || 0;
+    out[n] = { win: w, lose: l, net: w - l };
+  }
+  return out;
 }

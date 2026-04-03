@@ -1,5 +1,8 @@
 import { esc } from './utils.js';
 
+/** 與統計「賭博代收付」拆項一致；出遊賭博模式會鎖定此分類。 */
+export const GAMBLING_CATEGORY = '賭博';
+
 /** Centralized category list — keep in sync with index.html <select#edit-category>. */
 export const CATEGORIES = [
   { value: '餐飲', emoji: '🍽', label: '🍽 餐飲' },
@@ -7,6 +10,7 @@ export const CATEGORIES = [
   { value: '購物', emoji: '🛍', label: '🛍 購物' },
   { value: '娛樂', emoji: '🎉', label: '🎉 娛樂' },
   { value: '生活', emoji: '🏠', label: '🏠 生活' },
+  { value: GAMBLING_CATEGORY, emoji: '🎰', label: '🎰 賭博' },
   { value: '其他', emoji: '📦', label: '📦 其他' },
 ];
 
@@ -16,6 +20,7 @@ const CATEGORY_STYLE_LIGHT = {
   購物: 'background:#ede9fe;color:#5b21b6',
   娛樂: 'background:#fce7f3;color:#9d174d',
   生活: 'background:#d1fae5;color:#065f46',
+  賭博: 'background:#ede9fe;color:#5b21b6',
   其他: 'background:#f3f4f6;color:#4b5563',
 };
 const CATEGORY_STYLE_DARK = {
@@ -24,6 +29,7 @@ const CATEGORY_STYLE_DARK = {
   購物: 'background:#2e1065;color:#c4b5fd',
   娛樂: 'background:#831843;color:#f9a8d4',
   生活: 'background:#064e3b;color:#6ee7b7',
+  賭博: 'background:#2e1065;color:#c4b5fd',
   其他: 'background:#334155;color:#94a3b8',
 };
 export const CATEGORY_STYLE = new Proxy({}, {
@@ -167,7 +173,36 @@ export const CATEGORY_KEYWORDS = {
     '剪髮',
     '美容',
   ],
+  賭博: [
+    '撲克',
+    '麻將',
+    '德州',
+    '百家',
+    '賭博',
+    '博弈',
+    '籌碼',
+    '21點',
+    '廿一點',
+    '骰子',
+    '押注',
+    '下注',
+    'casino',
+    'poker',
+  ],
 };
+
+/**
+ * @param {Record<string, number>} catTotals
+ * @param {number} grandTotal 含賭博的總額（與分析頁 total 一致）
+ */
+export function gamblingSplitFromCatTotals(catTotals, grandTotal) {
+  const gamble = catTotals[GAMBLING_CATEGORY] || 0;
+  const nonGamblingTotal = Math.max(0, grandTotal - gamble);
+  const nonGamblingSlices = Object.entries(catTotals)
+    .filter(([c]) => c !== GAMBLING_CATEGORY)
+    .sort((a, b) => b[1] - a[1]);
+  return { gambleTotal: gamble, nonGamblingTotal, nonGamblingSlices };
+}
 
 export function guessCategoryFromItem(item) {
   if (!item) return '';

@@ -8,6 +8,7 @@ import {
   getHiddenMemberStyleKey,
   HIDDEN_MEMBER_COLORS,
 } from '../js/data.js';
+import { gamblingSplitFromCatTotals, GAMBLING_CATEGORY } from '../js/category.js';
 
 describe('getDailyRecordsFromRows', () => {
   it('彙整 add 並套用 void / edit', () => {
@@ -125,6 +126,19 @@ describe('getTripExpensesFromRows', () => {
     const ex = getTripExpensesFromRows('t1', rows);
     expect(ex).toHaveLength(1);
     expect(ex[0]._voided).toBe(true);
+  });
+});
+
+describe('gamblingSplitFromCatTotals', () => {
+  it('拆出賭博與一般、圓餅分母為非賭博合計', () => {
+    const catTotals = { 餐飲: 100, [GAMBLING_CATEGORY]: 50, 未分類: 20 };
+    const grand = 170;
+    const { gambleTotal, nonGamblingTotal, nonGamblingSlices } = gamblingSplitFromCatTotals(catTotals, grand);
+    expect(gambleTotal).toBe(50);
+    expect(nonGamblingTotal).toBe(120);
+    const sumRest = nonGamblingSlices.reduce((s, [, a]) => s + a, 0);
+    expect(sumRest).toBe(120);
+    expect(nonGamblingSlices.some(([c]) => c === GAMBLING_CATEGORY)).toBe(false);
   });
 });
 

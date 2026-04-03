@@ -32,7 +32,7 @@ import {
 } from './data.js';
 import { computeBalance, computeSettlements } from './finance.js';
 import { showConfirm, showAlert } from './dialog.js';
-import { guessCategoryFromItem } from './category.js';
+import { guessCategoryFromItem, GAMBLING_CATEGORY } from './category.js';
 import { navigate } from './navigation.js';
 import { pauseSyncBriefly } from './sync-pause.js';
 import { renderHome, cancelHomeBalanceAnim } from './views-home.js';
@@ -44,6 +44,7 @@ import {
   updatePerPerson,
   updateMultiPayTotal,
   resetTripDetailAmountDraft,
+  syncDetailTripFormLabels,
 } from './views-trip-detail.js';
 import { buildTripSettlementSummaryText } from './trip-stats.js';
 
@@ -82,7 +83,7 @@ export function setHomeSplitMode(val) {
   document.getElementById('h-paidby-group').style.display = isBoth ? 'none' : '';
 }
 
-export function toggleCollapsible(id, iconId) {
+export function toggleCollapsible(id, iconId, triggerId) {
   const el = document.getElementById(id);
   if (!el) return;
   const open = el.classList.toggle('is-open');
@@ -92,9 +93,30 @@ export function toggleCollapsible(id, iconId) {
       ? '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>'
       : '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>';
   }
+  if (triggerId) {
+    const trig = document.getElementById(triggerId);
+    if (trig) trig.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+}
+
+/** 新增消費標題列：整列收合；點「賭博模式」等內嵌按鈕時不收合 */
+export function tripDetailFormHeaderClick(e) {
+  if (e?.target?.closest?.('button, a, input, textarea, select')) return;
+  toggleCollapsible('detail-form', 'detail-toggle-icon', 'detail-form-header-toggle');
+}
+
+export function tripDetailFormHeaderKeydown(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  toggleCollapsible('detail-form', 'detail-toggle-icon', 'detail-form-header-toggle');
 }
 
 // ── Trip detail form ─────────────────────────────────────────────────────────
+export function toggleDetailGamblingMode() {
+  appState.detailGamblingMode = !appState.detailGamblingMode;
+  syncDetailTripFormLabels();
+}
+
 export function setDetailPaidBy(name) {
   const trip = getTripById(appState.currentTripId);
   if (!trip || !trip.members.includes(name)) return;
@@ -120,7 +142,7 @@ export function toggleMultiPay() {
   // Keep total amount visible so we can lock/auto-calc the last unfilled field.
   document.getElementById('d-amount-group').style.display = '';
   document.getElementById('d-multipay-group').style.display = appState.detailMultiPay ? '' : 'none';
-  if (mtog) mtog.textContent = appState.detailMultiPay ? '單人付款' : '多人出款';
+  syncDetailTripFormLabels();
   if (appState.detailMultiPay) {
     document.getElementById('d-payers-list').innerHTML = '';
     appState.detailMultiPayTouchedRows = {};
@@ -202,7 +224,7 @@ function maybeCollapseMultiPayToSingle() {
   document.getElementById('d-multipay-group').style.display = 'none';
   const mtog = document.getElementById('d-multipay-toggle');
   if (mtog) {
-    mtog.textContent = '多人出款';
+    syncDetailTripFormLabels();
     const tripNow = getTripById(appState.currentTripId);
     const mems = tripNow ? tripNow.members : [];
     mtog.disabled = mems.length < 2;
@@ -384,8 +406,7 @@ export function toggleSplit(name) {
 
 export function toggleDetailSplitMode() {
   appState.detailSplitMode = appState.detailSplitMode === 'custom' ? 'equal' : 'custom';
-  const btn = document.getElementById('d-split-mode-toggle');
-  if (btn) btn.textContent = appState.detailSplitMode === 'custom' ? '改回均分' : '詳細分攤';
+  syncDetailTripFormLabels();
   if (appState.detailSplitMode === 'custom') {
     appState.detailSplitTotalTouched = parseMoneyLike(document.getElementById('d-amount')?.value) > 0;
   } else {
@@ -1493,6 +1514,11 @@ export async function submitTripExpense() {
     extraFields = { ...extraFields, splitDetails };
   }
 
+  let category = '';
+  if (appState.detailGamblingMode) {
+    category = GAMBLING_CATEGORY;
+  }
+
   const btn = document.getElementById('d-submit');
   btn.disabled = true;
   btn.textContent = '記帳中…';
@@ -1508,6 +1534,7 @@ export async function submitTripExpense() {
     splitAmong: JSON.stringify(appState.detailSplitAmong),
     date: todayStr(),
     note,
+    ...(category ? { category } : {}),
     ...extraFields,
   };
   appState.allRows.push(row);
@@ -1517,6 +1544,7 @@ export async function submitTripExpense() {
   try {
     const pr = await postRow(row);
     toast(pr.status === 'queued' ? '已暫存，連上網路後會自動上傳' : '已記帳！');
+    appState.detailGamblingMode = false;
   } catch (e) {
     undoOptimisticPush(row);
     renderTripDetail();
@@ -1539,6 +1567,7 @@ export async function submitTripExpense() {
       el.value = '';
     });
   }
+  syncDetailTripFormLabels();
   btn.disabled = false;
   btn.textContent = '記起來';
 }
@@ -1673,9 +1702,33 @@ export function openEditRecord(r) {
   appState._editRecord = r;
   editPhotoPendingChange = null;
 
+  const isTripSettlement = r.type === 'tripSettlement';
+  const catGrp = document.getElementById('edit-category-group');
+  const noteGrp = document.getElementById('edit-note-photo-group');
+  const dateInput = document.getElementById('edit-date');
+  const dateGrp = dateInput?.closest('.form-group');
+  const submitBtn = document.getElementById('edit-submit-btn');
+  if (isTripSettlement) {
+    if (catGrp) catGrp.style.display = 'none';
+    if (noteGrp) noteGrp.style.display = 'none';
+    if (dateGrp) dateGrp.style.display = 'none';
+    if (submitBtn) submitBtn.style.display = 'none';
+  } else {
+    if (catGrp) catGrp.style.display = '';
+    if (noteGrp) noteGrp.style.display = '';
+    if (dateGrp) dateGrp.style.display = '';
+    if (submitBtn) submitBtn.style.display = '';
+  }
+
   const voidBtn = document.getElementById('edit-void-btn');
   if (voidBtn) {
-    const canVoid = r && (r.type === 'daily' || r.type === 'settlement' || r.type === 'tripExpense') && r.id;
+    const canVoid =
+      r &&
+      (r.type === 'daily' ||
+        r.type === 'settlement' ||
+        r.type === 'tripExpense' ||
+        r.type === 'tripSettlement') &&
+      r.id;
     voidBtn.style.display = canVoid ? '' : 'none';
     voidBtn.disabled = !canVoid;
   }
@@ -1683,6 +1736,16 @@ export function openEditRecord(r) {
   const summary = document.getElementById('edit-summary');
   if (summary) {
     const amt = parseFloat(r.amount) || 0;
+    if (isTripSettlement) {
+      summary.innerHTML =
+        `<div class="edit-summary-item">出遊還款</div>` +
+        `<div class="edit-summary-meta">${esc(r.date || '')} · ${esc(String(r.from || ''))} → ${esc(String(r.to || ''))} · NT$${Math.round(amt)}</div>`;
+      if (!prefersReducedMotion()) {
+        summary.classList.remove('edit-summary--swap');
+        void summary.offsetWidth;
+        requestAnimationFrame(() => summary.classList.add('edit-summary--swap'));
+      }
+    } else {
     let payLine = '';
     if (r.type === 'tripExpense' && Array.isArray(r.payers) && r.payers.length) {
       const parts = r.payers
@@ -1725,6 +1788,7 @@ export function openEditRecord(r) {
       void summary.offsetWidth;
       requestAnimationFrame(() => summary.classList.add('edit-summary--swap'));
     }
+    }
   }
 
   document.getElementById('edit-date').value = r.date || todayStr();
@@ -1738,10 +1802,15 @@ export function openEditRecord(r) {
   document.getElementById('edit-overlay').classList.add('open');
 }
 
-export function openEditRecordById(id, isTripExpense) {
-  const r = isTripExpense
-    ? appState._tripExpenseCache.find(x => x.id === id)
-    : appState._dailyRecordsCache.find(x => x.id === id);
+export function openEditRecordById(id, kind) {
+  let r;
+  if (kind === true || kind === 'tripExpense') {
+    r = appState._tripExpenseCache.find(x => x.id === id);
+  } else if (kind === 'tripSettlement') {
+    r = appState._tripSettlementCache.find(x => x.id === id);
+  } else {
+    r = appState._dailyRecordsCache.find(x => x.id === id);
+  }
   if (!r) return;
   openEditRecord(r);
 }
@@ -1767,31 +1836,37 @@ export function closeEditRecord() {
 export async function voidEditingRecord() {
   const r = appState._editRecord;
   if (!r || !r.id || r._voided) return;
-  const isTrip = r.type === 'tripExpense';
-  const label = r.type === 'settlement' ? '還款' : (r.item || '消費');
+  const isTripExp = r.type === 'tripExpense';
+  const isTripSettle = r.type === 'tripSettlement';
+  const isTripLedger = isTripExp || isTripSettle;
+  const label =
+    r.type === 'settlement' || r.type === 'tripSettlement'
+      ? '還款'
+      : r.item || '消費';
   const amount = parseFloat(r.amount) || 0;
   const ok = await showConfirm(
     '撤回這筆紀錄？',
-    `「${label}」— NT$${Math.round(amount)} 將標記為撤回，${isTrip ? '分帳' : '帳面'}隨之更動，紀錄仍保留。`,
+    `「${label}」— NT$${Math.round(amount)} 將標記為撤回，${isTripLedger ? '分帳' : '帳面'}隨之更動，紀錄仍保留。`,
   );
   if (!ok) return;
 
   closeEditRecord();
 
-  const row = isTrip
-    ? { type: 'tripExpense', action: 'void', id: r.id }
-    : { type: 'daily', action: 'void', id: r.id };
-  if (!isTrip) snapshotPendingHomeBalanceFromAbs();
+  let row;
+  if (isTripExp) row = { type: 'tripExpense', action: 'void', id: r.id };
+  else if (isTripSettle) row = { type: 'tripSettlement', action: 'void', id: r.id };
+  else row = { type: 'daily', action: 'void', id: r.id };
+  if (!isTripLedger) snapshotPendingHomeBalanceFromAbs();
   appState.allRows.push(row);
-  if (isTrip) renderTripDetail();
+  if (isTripLedger) renderTripDetail();
   else renderHome();
   try {
     const pr = await postRow(row);
     toast(pr.status === 'queued' ? '已暫存，連上網路後會自動上傳' : '已撤回');
   } catch (e) {
     undoOptimisticPush(row);
-    if (!isTrip) cancelHomeBalanceAnim();
-    if (isTrip) renderTripDetail();
+    if (!isTripLedger) cancelHomeBalanceAnim();
+    if (isTripLedger) renderTripDetail();
     else renderHome();
     toast(formatPostError(e));
   }
@@ -1799,6 +1874,10 @@ export async function voidEditingRecord() {
 
 export async function submitEditRecord() {
   if (!appState._editRecord) return;
+  if (appState._editRecord.type === 'tripSettlement') {
+    toast('出遊還款僅可撤回，無法編輯');
+    return;
+  }
   const date = document.getElementById('edit-date').value;
   const note = document.getElementById('edit-note').value.trim();
   if (!date) {

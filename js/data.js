@@ -410,6 +410,37 @@ export function getTripSettlementAdjustmentsFromRows(tripId, allRows) {
 }
 
 /**
+ * 出遊還款紀錄列表（供歷史紀錄與編輯／撤回）。
+ * @param {string} tripId
+ * @param {import('./model.js').LedgerRow[]} allRows
+ */
+export function getTripSettlementDisplayRowsFromRows(tripId, allRows) {
+  const renames = buildRenameMap();
+  const voidIds = new Set(
+    allRows.filter(r => r.type === 'tripSettlement' && r.action === 'void').map(r => r.id),
+  );
+  return allRows
+    .filter(
+      r =>
+        r.type === 'tripSettlement' &&
+        r.action === 'add' &&
+        r.tripId === tripId,
+    )
+    .map(r => ({
+      type: 'tripSettlement',
+      id: r.id,
+      tripId: r.tripId,
+      date: normalizeDate(r.date),
+      from: resolveMemberName(r.from, renames),
+      to: resolveMemberName(r.to, renames),
+      amount: parseFloat(r.amount) || 0,
+      _voided: voidIds.has(r.id),
+    }))
+    .slice()
+    .reverse();
+}
+
+/**
  * 收集所有曾出現的成員名稱（行程成員、頭像、日常使用者等）
  */
 export function getKnownMemberNames() {

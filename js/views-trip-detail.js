@@ -3,6 +3,7 @@ import {
   getTripById,
   getTripExpenses,
   getTripSettlementAdjustmentsFromRows,
+  getTripSettlementDisplayRowsFromRows,
   getAvatarUrlByMemberName,
   getKnownMemberNames,
   getMemberColor,
@@ -257,24 +258,62 @@ function tripExpenseHTML(e, totalMembers, recordIndex = 0) {
   </div>`;
 }
 
-function buildTripExpensesByDayHTML(expenses, trip) {
+function tripSettlementHTML(s, recordIndex = 0) {
+  const ri = `--record-i:${recordIndex};`;
+  const clickAttr = s._voided
+    ? ''
+    : `onclick='openEditRecordById(${jq(s.id)},"tripSettlement")' style="cursor:pointer" title="點擊檢視／撤回"`;
+  return `<div class="record-item is-settlement${s._voided ? ' is-voided' : ''}" style="${ri}">
+    <div class="record-avatar settle">↕</div>
+    <div class="record-info" ${clickAttr}>
+      <div class="record-name">
+        <span class="record-name-text">出遊還款</span>
+        <span class="badge ${s._voided ? 'badge-void' : 'badge-settle'}">${s._voided ? '已撤回' : '還款'}</span>
+      </div>
+      <div class="record-meta">${esc(s.date)} · ${esc(s.from)} → ${esc(s.to)}</div>
+    </div>
+    <div class="record-amount" style="${s._voided ? 'color:#9ca3af;text-decoration:line-through' : 'color:#065f46'}">NT$${Math.round(s.amount)}</div>
+  </div>`;
+}
+
+/** 與 allRows 順序一致（較新的列在陣列後方 → 顯示時排在同日前方） */
+function buildTripLedgerOrderIndex(tripId, allRows) {
+  const idx = new Map();
+  allRows.forEach((row, i) => {
+    if (!row?.id) return;
+    if (row.type === 'tripExpense' && row.action === 'add' && row.tripId === tripId) {
+      idx.set(row.id, i);
+    }
+    if (row.type === 'tripSettlement' && row.action === 'add' && row.tripId === tripId) {
+      idx.set(row.id, i);
+    }
+  });
+  return idx;
+}
+
+function buildTripExpensesByDayHTML(expenses, settlements, trip, allRows) {
+  const orderIdx = buildTripLedgerOrderIndex(trip.id, allRows);
   const byDay = {};
-  for (const e of expenses) {
-    const d = e.date || '（無日期）';
+  const push = (d, item) => {
     if (!byDay[d]) byDay[d] = [];
-    byDay[d].push(e);
-  }
+    byDay[d].push(item);
+  };
+  for (const e of expenses) push(e.date || '（無日期）', { kind: 'expense', data: e });
+  for (const s of settlements) push(s.date || '（無日期）', { kind: 'settlement', data: s });
+
   const days = Object.keys(byDay).sort().reverse();
   let recIdx = 0;
   return days
     .map((d, dayIdx) => {
       const list = byDay[d];
-      const sub = list.filter(e => !e._voided).reduce((s, e) => s + e.amount, 0);
-      const voidN = list.filter(e => e._voided).length;
-      const subLabel =
-        voidN > 0
-          ? `小計 NT$${Math.round(sub).toLocaleString()}（含撤回 ${voidN} 筆）`
-          : `小計 NT$${Math.round(sub).toLocaleString()}`;
+      list.sort((a, b) => {
+        const ia = orderIdx.get(a.data.id) ?? -1;
+        const ib = orderIdx.get(b.data.id) ?? -1;
+        return ib - ia;
+      });
+      const expensesOnly = list.filter(x => x.kind === 'expense').map(x => x.data);
+      const sub = expensesOnly.filter(e => !e._voided).reduce((s, e) => s + e.amount, 0);
+      const subLabel = `小計 NT$${Math.round(sub).toLocaleString()}`;
       return `
     <div class="trip-day-group" style="--day-i:${dayIdx}">
       <div class="trip-day-label">
@@ -282,7 +321,13 @@ function buildTripExpensesByDayHTML(expenses, trip) {
         <span class="trip-day-sub">${subLabel}</span>
       </div>
       <div class="trip-day-items">
-        ${list.map(e => tripExpenseHTML(e, trip.members.length, recIdx++)).join('')}
+        ${list
+          .map(item =>
+            item.kind === 'expense'
+              ? tripExpenseHTML(item.data, trip.members.length, recIdx++)
+              : tripSettlementHTML(item.data, recIdx++),
+          )
+          .join('')}
       </div>
     </div>`;
     })
@@ -461,6 +506,7 @@ function renderSettlement(members, expenses, trip) {
 
   if (expenses.length === 0) {
     bar.className = 'balance-bar';
+    bar.style.background = '';
     body.innerHTML = `<div class="balance-content">
       <div class="balance-icon" style="background:#eff6ff">
         <svg viewBox="0 0 24 24" style="fill:#3b82f6"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
@@ -476,6 +522,7 @@ function renderSettlement(members, expenses, trip) {
 
   if (active.length === 0) {
     bar.className = 'balance-bar';
+    bar.style.background = '';
     body.innerHTML = `<div class="balance-content">
       <div class="balance-icon" style="background:#eff6ff">
         <svg viewBox="0 0 24 24" style="fill:#3b82f6"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
@@ -493,19 +540,20 @@ function renderSettlement(members, expenses, trip) {
     ? getTripSettlementAdjustmentsFromRows(trip.id, appState.allRows)
     : [];
   const settlements = computeSettlements(members, active, adjustments);
+  const dueSettlements = settlements.filter(s => Math.round(parseFloat(s.amount) || 0) > 0);
   const total = active.reduce((s, e) => s + e.amount, 0);
-  const subNote = voidCount > 0 ? ` · 已排除撤回 ${voidCount} 筆` : '';
 
-  if (settlements.length === 0) {
+  if (dueSettlements.length === 0) {
     bar.className = 'balance-bar';
+    bar.style.background = '';
     body.innerHTML = `<div class="balance-content">
       <div class="balance-icon" style="background:#eff6ff">
         <svg viewBox="0 0 24 24" style="fill:#3b82f6"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
       </div>
       <div>
         <div class="balance-label">目前結算</div>
-        <div style="font-size:22px;font-weight:700">帳目已清</div>
-        <div class="balance-sub">有效 ${active.length} 筆 · NT$${Math.round(total)}${subNote}</div>
+        <div style="font-size:22px;font-weight:700">未有積欠金額</div>
+        <div class="balance-sub">有效 ${active.length} 筆 · NT$${Math.round(total)}</div>
       </div>
     </div>`;
     return;
@@ -513,9 +561,9 @@ function renderSettlement(members, expenses, trip) {
 
   bar.className = 'balance-bar';
   bar.style.background = '#f59e0b';
-  const maxPay = Math.max(...settlements.map(s => s.amount), 1);
+  const maxPay = Math.max(...dueSettlements.map(s => s.amount), 1);
   const canSettle = trip && !trip._closed;
-  const rowsHtml = settlements
+  const rowsHtml = dueSettlements
     .map(s => {
       const amt = Math.round(s.amount);
       const barPct = Math.round((s.amount / maxPay) * 100);
@@ -548,7 +596,7 @@ function renderSettlement(members, expenses, trip) {
     <button type="button" class="settlement-collapse-trigger" onclick="toggleCollapsible('settlement-flows-panel','settlement-flows-icon')" aria-expanded="true">
       <div class="settlement-collapse-trigger__main">
         <span class="settlement-collapse-title">誰要付給誰</span>
-        <span class="settlement-header-meta">有效 ${active.length} 筆 · NT$${Math.round(total)}${subNote}</span>
+        <span class="settlement-header-meta">有效 ${active.length} 筆 · NT$${Math.round(total)}</span>
       </div>
       <span class="settlement-collapse-chevron" aria-hidden="true">
         <svg id="settlement-flows-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
@@ -813,13 +861,13 @@ export function renderTripDetail() {
     return;
   }
   const expenses = getTripExpenses(appState.currentTripId);
+  const settlements = getTripSettlementDisplayRowsFromRows(appState.currentTripId, appState.allRows);
   appState._tripExpenseCache = expenses;
+  appState._tripSettlementCache = settlements;
 
   document.getElementById('detail-name').textContent = trip.name;
-  const activeExp = expenses.filter(e => !e._voided);
-  const voidExpN = expenses.length - activeExp.length;
-  document.getElementById('detail-count').textContent =
-    voidExpN > 0 ? `有效 ${activeExp.length} 筆 · 共 ${expenses.length} 筆` : `${activeExp.length} 筆`;
+  const activeTotal = expenses.filter(e => !e._voided).length;
+  document.getElementById('detail-count').textContent = `有效 ${activeTotal} 筆`;
 
   renderDetailMemberChips(trip.members);
   renderDetailKnownMembers(trip);
@@ -848,8 +896,6 @@ export function renderTripDetail() {
   }
   appState.detailSplitLockedTarget = '';
   appState.detailSplitAutoFilledTarget = '';
-  const splitToggle = document.getElementById('d-split-mode-toggle');
-  if (splitToggle) splitToggle.textContent = appState.detailSplitMode === 'custom' ? '改回均分' : '詳細分攤';
   if (!appState.detailMultiPay) {
     appState.detailMultiPayTotalTouched = false;
     appState.detailMultiPayTouchedRows = {};
@@ -895,15 +941,15 @@ export function renderTripDetail() {
 
   const expEl = document.getElementById('detail-expenses');
   if (expEl._scrollRevealCleanup) expEl._scrollRevealCleanup();
-  if (expenses.length === 0) {
-    expEl.innerHTML = emptyHTML('還沒有消費紀錄', '');
+  if (expenses.length === 0 && settlements.length === 0) {
+    expEl.innerHTML = emptyHTML('還沒有消費或還款紀錄', '');
   } else {
-    expEl.innerHTML = buildTripExpensesByDayHTML(expenses, trip);
+    expEl.innerHTML = buildTripExpensesByDayHTML(expenses, settlements, trip, appState.allRows);
   }
 
   const doReveal = appState.revealTripExpensesNext;
   appState.revealTripExpensesNext = false;
-  if (expenses.length > 0) {
+  if (expenses.length > 0 || settlements.length > 0) {
     bindScrollReveal(expEl, '.trip-day-group, .record-item', { enabled: doReveal });
   }
   const chipsEl = document.getElementById('detail-member-chips');
@@ -911,6 +957,33 @@ export function renderTripDetail() {
   const kmRoot = document.getElementById('detail-known-members');
   if (kmRoot) bindScrollReveal(kmRoot, '.known-member-bar-btn', { enabled: doReveal });
   if (payerEl) bindScrollReveal(payerEl, '.trip-stats-section, .payer-stats-row', { enabled: doReveal });
+
+  syncDetailTripFormLabels();
+}
+
+/** 依賭博模式更新出遊新增消費表單文案與分類選單狀態 */
+export function syncDetailTripFormLabels() {
+  const g = appState.detailGamblingMode;
+  const paid = document.getElementById('d-label-paidby');
+  if (paid) paid.textContent = g ? '誰贏錢？' : '誰先付錢？';
+  const mp = document.getElementById('d-label-multipay-toggle');
+  if (mp) {
+    if (appState.detailMultiPay) mp.textContent = g ? '單人贏錢' : '單人付款';
+    else mp.textContent = g ? '多人贏錢' : '多人出款';
+  }
+  const sub = document.getElementById('d-label-payers-sub');
+  if (sub) sub.textContent = g ? '各贏多少？' : '各自出了多少？';
+  const spl = document.getElementById('d-label-split');
+  if (spl) spl.textContent = g ? '誰承擔（輸家）？' : '誰要分攤？';
+  const sm = document.getElementById('d-label-split-mode');
+  if (sm) sm.textContent = appState.detailSplitMode === 'custom' ? '改回均分' : g ? '詳細輸贏' : '詳細分攤';
+  const toggles = document.getElementById('d-paidby-toggles');
+  if (toggles) toggles.setAttribute('aria-label', g ? '誰贏錢' : '誰先付錢');
+  const gambleBtn = document.getElementById('d-gambling-toggle');
+  if (gambleBtn) {
+    gambleBtn.classList.toggle('d-gambling-toggle--on', !!g);
+    gambleBtn.setAttribute('aria-pressed', g ? 'true' : 'false');
+  }
 }
 
 export { updatePerPerson, updateMultiPayTotal };

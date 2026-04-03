@@ -4,6 +4,8 @@ import { getDailyRecords } from './data.js';
 import { getAnalysisRange } from './time.js';
 import { esc, prefersReducedMotion } from './utils.js';
 import { makePieChartSVG, CAT_PIE_COLORS } from './pie-chart.js';
+import { gamblingSplitFromCatTotals } from './category.js';
+import { accumulateDailyGamblingWinLose } from './finance.js';
 
 let analysisCountGen = 0;
 
@@ -145,24 +147,71 @@ export function renderAnalysis() {
 
   const huR = Math.round(huTotal);
   const zhanR = Math.round(zhanTotal);
-  const totalR = Math.round(total);
 
-  const slices = Object.entries(catTotals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, amt]) => ({ cat, amount: amt, color: CAT_PIE_COLORS[cat] || '#94a3b8' }));
+  const { gambleTotal, nonGamblingTotal, nonGamblingSlices } = gamblingSplitFromCatTotals(catTotals, total);
+  const gambleR = Math.round(gambleTotal);
+  const nonGamR = Math.round(nonGamblingTotal);
+  const pieDenom = nonGamblingTotal;
+  const pieSlices = nonGamblingSlices.map(([cat, amt]) => ({
+    cat,
+    amount: amt,
+    color: CAT_PIE_COLORS[cat] || '#94a3b8',
+  }));
 
-  const legend = slices
-    .map((s, idx) => {
-      const pct = total > 0 ? Math.round((s.amount / total) * 100) : 0;
-      const amtR = Math.round(s.amount);
-      return `<div class="analysis-legend-row" style="--legend-i:${idx}">
+  let legendIdx = 0;
+  const legendRows = [];
+  for (const s of pieSlices) {
+    const pctPie = pieDenom > 0 ? Math.round((s.amount / pieDenom) * 100) : 0;
+    const amtR = Math.round(s.amount);
+    legendRows.push(`<div class="analysis-legend-row" style="--legend-i:${legendIdx++}">
       <div class="analysis-legend-swatch" style="background:${s.color}"></div>
       <div class="analysis-legend-name">${esc(s.cat)}</div>
-      <div class="analysis-legend-pct" data-analysis-count="${pct}" data-analysis-mode="pct">${prefersReducedMotion() ? `${pct}%` : '0%'}</div>
+      <div class="analysis-legend-pct" data-analysis-count="${pctPie}" data-analysis-mode="pct">${prefersReducedMotion() ? `${pctPie}%` : '0%'}</div>
       <div class="analysis-legend-amt" data-analysis-count="${amtR}" data-analysis-mode="currency">${prefersReducedMotion() ? `NT$${amtR.toLocaleString()}` : 'NT$0'}</div>
+    </div>`);
+  }
+  const legend = legendRows.join('');
+
+  const dailyGamblePl = gambleR > 0 ? accumulateDailyGamblingWinLose(records) : null;
+  const prm = prefersReducedMotion();
+  const gamblePlHead = `<div class="analysis-gamble-pl-row analysis-gamble-pl-row--head">
+      <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--name"></span>
+      <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num">贏</span>
+      <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num">輸</span>
+      <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num">淨</span>
     </div>`;
-    })
-    .join('');
+  const gamblePlCard =
+    gambleR > 0 && dailyGamblePl
+      ? `<div class="analysis-gamble-pl">
+      <div class="analysis-gamble-pl-title">賭博輸贏</div>
+      <div class="analysis-gamble-pl-grid" role="table" aria-label="賭博輸贏">
+      ${gamblePlHead}
+      ${[USER_A, USER_B]
+        .map(name => {
+          const x = dailyGamblePl[name];
+          const wR = Math.round(x.win);
+          const lR = Math.round(x.lose);
+          const nR = Math.round(x.net);
+          const netCls =
+            nR > 0 ? 'analysis-gamble-pl-net--win' : nR < 0 ? 'analysis-gamble-pl-net--lose' : '';
+          return `<div class="analysis-gamble-pl-row">
+        <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--name">${esc(name)}</span>
+        <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num"><span data-analysis-count="${wR}" data-analysis-mode="currency">${prm ? `NT$${wR.toLocaleString()}` : 'NT$0'}</span></span>
+        <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num"><span data-analysis-count="${lR}" data-analysis-mode="currency">${prm ? `NT$${lR.toLocaleString()}` : 'NT$0'}</span></span>
+        <span class="analysis-gamble-pl-cell analysis-gamble-pl-cell--num analysis-gamble-pl-cell--net ${netCls}"><span data-analysis-count="${nR}" data-analysis-mode="currency">${prm ? `NT$${nR.toLocaleString()}` : 'NT$0'}</span></span>
+      </div>`;
+        })
+        .join('')}
+      </div>
+      <div class="analysis-gamble-pl-footnote">加總 NT$${gambleR.toLocaleString()}</div>
+    </div>`
+      : '';
+
+  const labelOpts = {
+    cat: appState.pieLabelShowCategory,
+    pct: appState.pieLabelShowPct,
+    amt: appState.pieLabelShowAmount,
+  };
 
   const pieToggles = `
     <div class="analysis-pie-label-toggles" role="group" aria-label="圓餅圖環上顯示">
@@ -180,16 +229,17 @@ export function renderAnalysis() {
       </label>
     </div>`;
 
-  const labelOpts = {
-    cat: appState.pieLabelShowCategory,
-    pct: appState.pieLabelShowPct,
-    amt: appState.pieLabelShowAmount,
-  };
+  const pieBlock =
+    pieSlices.length === 0 && gambleR > 0
+      ? `<div class="analysis-pie-empty">此期間無一般支出分類可畫圓餅（賭博見上方輸贏分析）</div>`
+      : `<div class="analysis-pie-wrap">
+      ${makePieChartSVG(pieSlices, pieDenom > 0 ? pieDenom : 1, labelOpts)}
+    </div>`;
 
   const statHuStart = prefersReducedMotion() ? `NT$${huR.toLocaleString()}` : 'NT$0';
   const statZhanStart = prefersReducedMotion() ? `NT$${zhanR.toLocaleString()}` : 'NT$0';
   const totalPctStart = prefersReducedMotion() ? '100%' : '0%';
-  const totalAmtStart = prefersReducedMotion() ? `NT$${totalR.toLocaleString()}` : 'NT$0';
+  const pieLegendAmtStart = prm ? `NT$${nonGamR.toLocaleString()}` : 'NT$0';
 
   el.innerHTML = `
     <div class="analysis-tabs">${tabs}</div>
@@ -204,17 +254,16 @@ export function renderAnalysis() {
         <div class="analysis-stat-val analysis-stat-val--zhan" data-analysis-count="${zhanR}" data-analysis-mode="currency">${statZhanStart}</div>
       </div>
     </div>
+    ${gamblePlCard}
     ${pieToggles}
-    <div class="analysis-pie-wrap">
-      ${makePieChartSVG(slices, total, labelOpts)}
-    </div>
+    ${pieBlock}
     <div class="analysis-legend-card">
       ${legend}
-      <div class="analysis-legend-row analysis-legend-row--total" style="--legend-n:${slices.length}">
+      <div class="analysis-legend-row analysis-legend-row--total" style="--legend-n:${legendIdx}">
         <div class="analysis-legend-swatch analysis-legend-swatch--empty"></div>
         <div class="analysis-legend-name analysis-legend-name--total">合計</div>
         <div class="analysis-legend-pct" data-analysis-count="100" data-analysis-mode="pct">${totalPctStart}</div>
-        <div class="analysis-legend-amt analysis-legend-amt--total" data-analysis-count="${totalR}" data-analysis-mode="currency">${totalAmtStart}</div>
+        <div class="analysis-legend-amt analysis-legend-amt--total" data-analysis-count="${nonGamR}" data-analysis-mode="currency">${pieLegendAmtStart}</div>
       </div>
     </div>`;
 

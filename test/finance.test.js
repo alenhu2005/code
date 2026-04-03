@@ -5,7 +5,11 @@ import {
   computePayerTotals,
   computeMemberShareTotals,
   computeTripDaySubtotals,
+  dailyExpenseBalanceDeltaForUserA,
+  accumulateDailyGamblingWinLose,
+  computeTripGamblingWinLoseByMember,
 } from '../js/finance.js';
+import { GAMBLING_CATEGORY } from '../js/category.js';
 
 describe('computeBalance', () => {
   it('均分且胡付：詹應付的一半記入淨額', () => {
@@ -158,5 +162,67 @@ describe('computeTripDaySubtotals', () => {
     ]);
     expect(m['2024-01-01']).toBeCloseTo(15);
     expect(m['2024-01-02']).toBeCloseTo(3);
+  });
+});
+
+describe('dailyExpenseBalanceDeltaForUserA', () => {
+  it('與 computeBalance 單筆均分一致', () => {
+    const d = dailyExpenseBalanceDeltaForUserA({
+      type: 'daily',
+      _voided: false,
+      paidBy: '胡',
+      splitMode: '均分',
+      amount: 100,
+    });
+    const net = computeBalance([
+      { type: 'daily', _voided: false, paidBy: '胡', splitMode: '均分', amount: 100 },
+    ]);
+    expect(d).toBeCloseTo(net);
+  });
+});
+
+describe('accumulateDailyGamblingWinLose', () => {
+  it('胡付均分賭博：胡記贏、詹記輸', () => {
+    const pl = accumulateDailyGamblingWinLose([
+      {
+        type: 'daily',
+        _voided: false,
+        category: GAMBLING_CATEGORY,
+        paidBy: '胡',
+        splitMode: '均分',
+        amount: 100,
+      },
+    ]);
+    expect(pl.胡.win).toBeCloseTo(50);
+    expect(pl.胡.lose).toBeCloseTo(0);
+    expect(pl.詹.win).toBeCloseTo(0);
+    expect(pl.詹.lose).toBeCloseTo(50);
+    expect(pl.胡.net).toBeCloseTo(50);
+    expect(pl.詹.net).toBeCloseTo(-50);
+  });
+
+  it('非賭博分類不計入', () => {
+    const pl = accumulateDailyGamblingWinLose([
+      { type: 'daily', _voided: false, category: '餐飲', paidBy: '胡', splitMode: '均分', amount: 100 },
+    ]);
+    expect(pl.胡.win + pl.胡.lose).toBeCloseTo(0);
+  });
+});
+
+describe('computeTripGamblingWinLoseByMember', () => {
+  it('單一贏家與兩位輸家分攤', () => {
+    const pl = computeTripGamblingWinLoseByMember([
+      {
+        _voided: false,
+        category: GAMBLING_CATEGORY,
+        amount: 300,
+        paidBy: '甲',
+        splitAmong: ['乙', '丙'],
+      },
+    ]);
+    expect(pl.甲.win).toBeCloseTo(300);
+    expect(pl.甲.lose).toBeCloseTo(0);
+    expect(pl.乙.lose).toBeCloseTo(150);
+    expect(pl.丙.lose).toBeCloseTo(150);
   });
 });

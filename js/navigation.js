@@ -13,6 +13,7 @@ import { cancelTripSettlementAnim, resetTripDetailAmountDraft } from './views-tr
 export function navigate(page, tripId = null, opts = {}) {
   const { restoreScrollY } = opts;
   const prevPage = appState.currentPage;
+  const prevTripId = appState.currentTripId;
   if (prevPage === 'home' && page !== 'home') {
     cancelHomeBalanceAnim();
   }
@@ -21,11 +22,15 @@ export function navigate(page, tripId = null, opts = {}) {
   }
   if (prevPage === 'tripDetail' && page !== 'tripDetail') {
     cancelTripSettlementAnim();
+    appState.detailGamblingMode = false;
     // UX: do not keep amount draft when leaving trip detail.
     try { resetTripDetailAmountDraft(); } catch { /* ignore */ }
   }
   appState.currentPage = page;
   appState.currentTripId = tripId;
+  if (page === 'tripDetail' && tripId !== prevTripId) {
+    appState.detailGamblingMode = false;
+  }
   /** 每次進入「日常」（含已在日常再點一次底欄）都刷金額；還原捲動的 session 載入除外 */
   if (page === 'home' && typeof opts.restoreScrollY !== 'number') {
     appState.animateHomeBalanceNext = true;
@@ -41,8 +46,6 @@ export function navigate(page, tripId = null, opts = {}) {
   }
   if (page === 'tripDetail' && appState.detailMultiPay) {
     appState.detailMultiPay = false;
-    const tog = document.getElementById('d-multipay-toggle');
-    if (tog) tog.textContent = '多人出款';
     const pg = document.getElementById('d-paidby-group');
     const ag = document.getElementById('d-amount-group');
     const mg = document.getElementById('d-multipay-group');

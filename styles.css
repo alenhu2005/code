@@ -129,6 +129,53 @@
     .card-header {
       padding: 14px 16px 12px;
       display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
+    }
+    /* Full-width row tap target (e.g. 歷史紀錄)：整列收合，避免只點箭頭 */
+    button.card-header.card-header--toggle {
+      width: 100%;
+      margin: 0;
+      border: none;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button.card-header.card-header--toggle:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+    button.card-header.card-header--toggle:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+    html.dark button.card-header.card-header--toggle:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .toggle-btn--header-decor {
+      pointer-events: none;
+    }
+    /* 含內嵌按鈕的標題列（新增消費）：整列可點收合 */
+    div.card-header.card-header--toggle-row {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    div.card-header.card-header--toggle-row:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+    }
+    div.card-header.card-header--toggle-row:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+    html.dark div.card-header.card-header--toggle-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .card-header-trail {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
     }
     .card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
     .card-title svg { width: 14px; height: 14px; fill: var(--primary); flex-shrink: 0; }
@@ -400,6 +447,28 @@
     }
     #page-trip-detail .trip-lottery-trigger svg {
       display: block;
+    }
+    /* 出遊詳情：新增消費／歷史／統計三張卡片同寬、標題列撐滿 */
+    #page-trip-detail .main > #add-expense-card,
+    #page-trip-detail .main > #detail-expenses-card,
+    #page-trip-detail .main > #trip-payer-card {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      align-self: stretch;
+    }
+    #page-trip-detail #add-expense-card > .card-header,
+    #page-trip-detail #detail-expenses-card > .card-header,
+    #page-trip-detail #trip-payer-card > .card-header {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    #page-trip-detail #add-expense-card > .card-header .card-title,
+    #page-trip-detail #detail-expenses-card > .card-header .card-title,
+    #page-trip-detail #trip-payer-card > .card-header .card-title {
+      flex: 1;
+      min-width: 0;
     }
     /* 出遊：數字炸彈（全螢幕；入口在抽籤浮層底部） */
     .trip-number-bomb-overlay {
@@ -1145,10 +1214,49 @@
       animation: none !important;
     }
 
+    .detail-expenses-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .detail-expenses-panel-inner {
+      padding: 0 0 8px;
+      transition: padding-top 0.38s var(--ease-soft), padding-bottom 0.38s var(--ease-soft);
+    }
+    .collapsible-panel:not(.is-open) .detail-expenses-panel-inner {
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
     /* Trip detail "歷史紀錄" card: leave room for rare rings/spikes */
     #detail-expenses .record-item {
-      padding-left: calc(24px + env(safe-area-inset-left, 0px));
-      padding-right: calc(24px + env(safe-area-inset-right, 0px));
+      padding: 10px calc(24px + env(safe-area-inset-right, 0px)) 10px calc(24px + env(safe-area-inset-left, 0px));
+      align-items: flex-start;
+    }
+    /* 優先顯示完整消費名稱：不截斷 …，名稱獨占一行可換行；徽章／分類在下一行 */
+    #detail-expenses .record-name {
+      flex-wrap: wrap;
+      align-items: flex-start;
+      row-gap: 4px;
+      column-gap: 6px;
+    }
+    #detail-expenses .record-name-text {
+      flex: 1 1 100%;
+      min-width: 0;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
+    }
+    #detail-expenses .record-name .badge,
+    #detail-expenses .record-name .category-badge {
+      flex-shrink: 0;
+    }
+    #detail-expenses .record-amount {
+      margin-top: 1px;
     }
 
     /* ice — make protrusions unmistakable (icy crown) */
@@ -1280,6 +1388,140 @@
     .analysis-stat-val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .analysis-stat-val--hu { color: var(--primary); }
     .analysis-stat-val--zhan { color: #10b981; }
+    .analysis-gamble-summary {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 12px 14px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .analysis-gamble-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+    }
+    .analysis-gamble-summary-row span:last-child {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .analysis-gamble-summary-row--total {
+      padding-top: 6px;
+      margin-top: 2px;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+    }
+    .analysis-gamble-pl {
+      margin-bottom: 18px;
+      padding: 12px 14px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .trip-gamble-pl {
+      margin-bottom: 12px;
+    }
+    .analysis-gamble-pl-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .analysis-gamble-pl-msg {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .analysis-gamble-pl-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(5.25em, auto) minmax(5.25em, auto) minmax(5.25em, auto);
+      column-gap: 12px;
+      row-gap: 8px;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .analysis-gamble-pl-row {
+      display: contents;
+    }
+    .analysis-gamble-pl-row--head .analysis-gamble-pl-cell {
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .analysis-gamble-pl-row--head .analysis-gamble-pl-cell--num {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .analysis-gamble-pl-cell--name {
+      min-width: 0;
+      word-break: break-word;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      padding-right: 4px;
+    }
+    .analysis-gamble-pl-cell--num {
+      text-align: right;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .analysis-gamble-pl-cell--net {
+      font-weight: 700;
+    }
+    .analysis-gamble-pl-cell--net.analysis-gamble-pl-net--win {
+      color: #059669 !important;
+    }
+    .analysis-gamble-pl-cell--net.analysis-gamble-pl-net--lose {
+      color: #dc2626 !important;
+    }
+    html.dark .analysis-gamble-pl-cell--net.analysis-gamble-pl-net--win {
+      color: #34d399 !important;
+    }
+    html.dark .analysis-gamble-pl-cell--net.analysis-gamble-pl-net--lose {
+      color: #f87171 !important;
+    }
+    .analysis-gamble-pl-footnote {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .analysis-pie-empty {
+      text-align: center;
+      padding: 28px 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--bg-secondary);
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      margin-bottom: 22px;
+    }
+    .d-gambling-toggle.d-gambling-toggle--on {
+      border-color: rgba(168, 85, 247, 0.55);
+      background: rgba(168, 85, 247, 0.12);
+      color: #7c3aed;
+      font-weight: 700;
+    }
+    html.dark .d-gambling-toggle.d-gambling-toggle--on {
+      border-color: rgba(192, 132, 252, 0.45);
+      background: rgba(168, 85, 247, 0.2);
+      color: #d8b4fe;
+    }
     .analysis-pie-label-toggles {
       display: flex;
       flex-wrap: wrap;
@@ -3325,6 +3567,60 @@
 
     /* Trip: stats & day groups */
     .trip-stats-body { padding-top: 0; }
+    .trip-stats-section.trip-stats-wallet-out {
+      padding: 14px 12px;
+      text-align: left;
+      background: var(--primary-light);
+      border-radius: 12px;
+      border: 1px solid rgba(59, 130, 246, 0.22);
+    }
+    html.dark .trip-stats-section.trip-stats-wallet-out {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(96, 165, 250, 0.32);
+    }
+    .trip-stats-wallet-out-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .trip-stats-wallet-out-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 10px;
+      border: 1px solid rgba(59, 130, 246, 0.12);
+    }
+    html.dark .trip-stats-wallet-out-row {
+      background: rgba(0, 0, 0, 0.18);
+      border-color: rgba(96, 165, 250, 0.22);
+    }
+    .trip-stats-wallet-out-name {
+      font-weight: 600;
+      font-size: 13px;
+      min-width: 0;
+      word-break: break-word;
+      color: var(--text);
+    }
+    .trip-stats-wallet-out-row-amt {
+      font-size: 15px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .trip-stats-wallet-out-row-amt--credit {
+      color: var(--success);
+    }
+    .trip-stats-wallet-out-total {
+      margin-top: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
     .trip-stats-section { margin-bottom: 18px; }
     .trip-stats-section:last-child { margin-bottom: 0; }
     .trip-stats-label {
@@ -3334,7 +3630,59 @@
     .trip-stats-foot {
       font-size: 11px; color: var(--text-muted); margin-top: 8px; padding: 0 2px; line-height: 1.45;
     }
-    .trip-stats-note { font-size: 11px; color: var(--warning); margin-top: 10px; line-height: 1.4; }
+    .trip-stats-net-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(5em, auto) minmax(5em, auto);
+      column-gap: 10px;
+      row-gap: 6px;
+      /* stretch：表頭左欄空白時仍與右欄同高，底線才能同一水平 */
+      align-items: stretch;
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .trip-stats-net-row {
+      display: contents;
+    }
+    .trip-stats-net-row--head .trip-stats-net-cell {
+      display: flex;
+      align-items: flex-end;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .trip-stats-net-row:not(.trip-stats-net-row--head) .trip-stats-net-cell {
+      display: flex;
+      align-items: center;
+      min-height: 1.35em;
+    }
+    .trip-stats-net-cell--name {
+      min-width: 0;
+      word-break: break-word;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      padding-right: 4px;
+    }
+    .trip-stats-net-cell--num {
+      text-align: right;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .trip-stats-net-cell--num.net-pos { color: var(--success); }
+    .trip-stats-net-cell--num.net-neg { color: var(--danger); }
+    .trip-stats-net-name-rank {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .trip-stats-net-name-rank .payer-stats-rank { flex-shrink: 0; }
+    .trip-stats-net-name-text {
+      min-width: 0;
+      word-break: break-word;
+    }
     .trip-stats-pie-section {
       margin-bottom: 22px;
       padding-bottom: 6px;
@@ -3365,12 +3713,16 @@
     .payer-stats-amt.net-neg { color: var(--danger); }
     .payer-stats-empty { font-size: 13px; color: var(--text-muted); padding: 4px 0; }
 
-    .trip-day-group { margin-bottom: 14px; }
+    .trip-day-group { margin-bottom: 10px; }
     .trip-day-group:last-child { margin-bottom: 0; }
+    .trip-day-group:not(:first-child) {
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
     .trip-day-label {
-      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 10px;
       font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em;
-      padding: 6px 16px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px;
+      padding: 4px 16px 5px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
     }
     .trip-day-label span:first-child { text-transform: uppercase; letter-spacing: .06em; }
     .trip-day-sub {

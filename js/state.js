@@ -34,6 +34,7 @@ export const appState = {
 
   _dailyRecordsCache: [],
   _tripExpenseCache: [],
+  _tripSettlementCache: [],
 
   analysisPeriod: 'month',
   /** 分析頁圓餅環上：分類 / 比例 / 金額（可各別關閉） */
@@ -86,6 +87,9 @@ export const appState = {
   detailMultiPayTouchedRows: {},
   /** multi-pay UI: next unique row id */
   detailMultiPayNextRowId: 1,
+
+  /** 出遊新增消費：賭博模式（文案與分類鎖定） */
+  detailGamblingMode: false,
 
   /** memberName -> pending colorId (coalesced; used to avoid spamming spreadsheet) */
   pendingMemberColors: {},
