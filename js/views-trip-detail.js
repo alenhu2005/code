@@ -15,6 +15,7 @@ import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr, memberToneClass, memberToneVars, prefersReducedMotion, bindScrollReveal } from './utils.js';
 import { emptyHTML } from './views-shared.js';
 import { navigate } from './navigation.js';
+import { addDaysTaipei, compareDateStr, normalizeDate, todayStr, weekdayTaipeiSundayZero } from './time.js';
 import { renderTripStatsCard } from './trip-stats.js';
 import { renderTripLotteryCard } from './trip-lottery.js';
 
@@ -272,8 +273,162 @@ function tripSettlementHTML(s, recordIndex = 0) {
       </div>
       <div class="record-meta">${esc(s.date)} · ${esc(s.from)} → ${esc(s.to)}</div>
     </div>
-    <div class="record-amount" style="${s._voided ? 'color:#9ca3af;text-decoration:line-through' : 'color:#065f46'}">NT$${Math.round(s.amount)}</div>
+    <div class="record-amount${s._voided ? '' : ' record-amount--settle'}" style="${s._voided ? 'color:#9ca3af;text-decoration:line-through' : ''}">NT$${Math.round(s.amount)}</div>
   </div>`;
+}
+
+function minDateStrInTripRecords(expenses, settlements) {
+  const ds = [];
+  for (const e of expenses) {
+    const d = e.date && String(e.date).slice(0, 10);
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ds.push(d);
+  }
+  for (const s of settlements) {
+    const d = s.date && String(s.date).slice(0, 10);
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ds.push(d);
+  }
+  if (ds.length === 0) return '';
+  return ds.reduce((a, b) => (compareDateStr(a, b) <= 0 ? a : b));
+}
+
+function maxDateStrInTripRecords(expenses, settlements) {
+  const ds = [];
+  for (const e of expenses) {
+    const d = e.date && String(e.date).slice(0, 10);
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ds.push(d);
+  }
+  for (const s of settlements) {
+    const d = s.date && String(s.date).slice(0, 10);
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ds.push(d);
+  }
+  if (ds.length === 0) return '';
+  return ds.reduce((a, b) => (compareDateStr(a, b) >= 0 ? a : b));
+}
+
+/**
+ * 行程歷史日期範圍：有紀錄時起點＝最早一筆（前面沒資料就不納入）；無紀錄時起點＝建立日或今天。
+ * 終點＝最後一筆紀錄日。
+ * @returns {{ start: string, end: string }}
+ */
+function tripHistoryDateRange(trip, expenses, settlements) {
+  const fromCreated = normalizeDate(trip.createdAt) || '';
+  const startFromCreated = /^\d{4}-\d{2}-\d{2}/.test(fromCreated) ? fromCreated.slice(0, 10) : '';
+  const minRec = minDateStrInTripRecords(expenses, settlements);
+  const maxRec = maxDateStrInTripRecords(expenses, settlements);
+  let start;
+  if (minRec) {
+    start = minRec;
+  } else {
+    start = startFromCreated || todayStr();
+  }
+  let end = maxRec || start;
+  if (compareDateStr(end, start) < 0) end = start;
+  return { start, end };
+}
+
+function eachDateInclusive(start, end) {
+  const out = [];
+  let d = start;
+  while (compareDateStr(d, end) <= 0) {
+    out.push(d);
+    d = addDaysTaipei(d, 1);
+  }
+  return out;
+}
+
+function tripStatsByDateFromTrip(expenses, settlements) {
+  const m = new Map();
+  for (const e of expenses) {
+    if (!e.date) continue;
+    m.set(e.date, (m.get(e.date) || 0) + 1);
+  }
+  for (const s of settlements) {
+    if (!s.date) continue;
+    m.set(s.date, (m.get(s.date) || 0) + 1);
+  }
+  return m;
+}
+
+/** 該週的星期日（台北日曆；與 weekdayTaipeiSundayZero 一致） */
+function sundayOnOrBefore(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const wd = weekdayTaipeiSundayZero(y, m, d);
+  return addDaysTaipei(dateStr, -wd);
+}
+
+/** 從第一個相關週日到最後一個相關週日，共有幾「週」面板（0 起） */
+function tripHistoryMaxWeekOffset(firstSunday, lastSunday) {
+  let max = 0;
+  for (let s = firstSunday; compareDateStr(s, lastSunday) < 0; s = addDaysTaipei(s, 7)) {
+    max++;
+  }
+  return max;
+}
+
+/**
+ * 每列固定 日→六（星期日為第一格）；僅行程範圍內的日期可點選。
+ * @param {{ start: string, end: string }} range
+ * @param {Map<string, number>} statsByDate
+ * @returns {{ html: string, rangeMeta: string }}
+ */
+function tripHistoryStripHTML(range, weekOffset, statsByDate, filterDate, today) {
+  const wdLabels = ['日', '一', '二', '三', '四', '五', '六'];
+  const firstSunday = sundayOnOrBefore(range.start);
+  const lastSunday = sundayOnOrBefore(range.end);
+  const maxOffset = tripHistoryMaxWeekOffset(firstSunday, lastSunday);
+  const w = Math.min(Math.max(0, weekOffset), maxOffset);
+  const pageSunday = addDaysTaipei(firstSunday, w * 7);
+  const pageSaturday = addDaysTaipei(pageSunday, 6);
+  const totalDays =
+    compareDateStr(range.start, range.end) <= 0
+      ? eachDateInclusive(range.start, range.end).length
+      : 0;
+  const canPrev = w > 0;
+  const canNext = w < maxOffset;
+  const cells = [];
+  /** 本列在行程範圍內的日期（用於標題，不含占位） */
+  let pageSpanFirst = '';
+  let pageSpanLast = '';
+  for (let i = 0; i < 7; i++) {
+    const ds = addDaysTaipei(pageSunday, i);
+    const inRange = compareDateStr(ds, range.start) >= 0 && compareDateStr(ds, range.end) <= 0;
+    if (!inRange) {
+      continue;
+    }
+    if (!pageSpanFirst) pageSpanFirst = ds;
+    pageSpanLast = ds;
+    const has = statsByDate.get(ds) || 0;
+    const isToday = ds === today;
+    const isSel = filterDate === ds;
+    const aria = has > 0 ? `${ds}，${has} 筆` : ds;
+    cells.push(
+      `<button type="button" class="trip-history-cell${isToday ? ' trip-history-cell--today' : ''}${isSel ? ' trip-history-cell--selected' : ''}"
+        onclick='selectTripHistoryDay(${jq(ds)})'
+        aria-label="${esc(aria)}"
+        aria-pressed="${isSel ? 'true' : 'false'}">
+        <span class="trip-history-wd">${wdLabels[i]}</span>
+        <span class="trip-history-daynum">${parseInt(ds.slice(8, 10), 10)}</span>
+      </button>`,
+    );
+  }
+  const rangeMeta =
+    totalDays > 0 && pageSpanFirst && pageSpanLast
+      ? `${pageSpanFirst.slice(5)}～${pageSpanLast.slice(5)} · 行程共 ${totalDays} 天`
+      : totalDays > 0
+        ? `${pageSunday.slice(5)}～${pageSaturday.slice(5)} · 行程共 ${totalDays} 天`
+        : '尚無日期範圍';
+  const html = `<div class="trip-history-nav-wrap">
+    <div class="trip-history-strip-row">
+      <button type="button" class="analysis-nav-btn trip-history-week-nav" onclick="shiftTripHistoryWeek(-1)" aria-label="上一週（週日為每列第一天）"${canPrev ? '' : ' disabled'}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div class="trip-history-strip" role="group" aria-label="行程日期，點選單日篩選；再點同一日顯示全部">${cells.join('')}</div>
+      <button type="button" class="analysis-nav-btn trip-history-week-nav" onclick="shiftTripHistoryWeek(1)" aria-label="下一週（週日為每列第一天）"${canNext ? '' : ' disabled'}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+  </div>`;
+  return { html, rangeMeta };
 }
 
 /** 與 allRows 順序一致（較新的列在陣列後方 → 顯示時排在同日前方） */
@@ -291,7 +446,7 @@ function buildTripLedgerOrderIndex(tripId, allRows) {
   return idx;
 }
 
-function buildTripExpensesByDayHTML(expenses, settlements, trip, allRows) {
+function buildTripExpensesByDayHTML(expenses, settlements, trip, allRows, filterDate) {
   const orderIdx = buildTripLedgerOrderIndex(trip.id, allRows);
   const byDay = {};
   const push = (d, item) => {
@@ -301,16 +456,56 @@ function buildTripExpensesByDayHTML(expenses, settlements, trip, allRows) {
   for (const e of expenses) push(e.date || '（無日期）', { kind: 'expense', data: e });
   for (const s of settlements) push(s.date || '（無日期）', { kind: 'settlement', data: s });
 
-  const days = Object.keys(byDay).sort().reverse();
+  const rawDays = Object.keys(byDay).sort().reverse();
+  const days = filterDate ? (byDay[filterDate] ? [filterDate] : []) : rawDays;
+
+  if (filterDate && days.length === 0) {
+    return emptyHTML('此日無紀錄', '換一天，或再點週曆上同一日以顯示全部');
+  }
+
   let recIdx = 0;
+  const sortDayList = list => {
+    list.sort((a, b) => {
+      const ia = orderIdx.get(a.data.id) ?? -1;
+      const ib = orderIdx.get(b.data.id) ?? -1;
+      return ib - ia;
+    });
+  };
+
+  /** 查看全部：頂部一列加總，下方單一列表（仍依日期新→舊、同日內原順序） */
+  if (!filterDate) {
+    if (rawDays.length === 0) return '';
+    const flatItems = [];
+    for (const d of rawDays) {
+      const list = byDay[d];
+      sortDayList(list);
+      for (const item of list) flatItems.push(item);
+    }
+    const totalCount = flatItems.length;
+    const totalSub = expenses.filter(e => !e._voided).reduce((s, e) => s + e.amount, 0);
+    const subLabel = `小計 NT$${Math.round(totalSub).toLocaleString()}`;
+    return `
+    <div class="trip-day-group trip-day-group--all" style="--day-i:0">
+      <div class="trip-day-label">
+        <span>全部 · ${totalCount} 筆</span>
+        <span class="trip-day-sub">${subLabel}</span>
+      </div>
+      <div class="trip-day-items">
+        ${flatItems
+          .map(item =>
+            item.kind === 'expense'
+              ? tripExpenseHTML(item.data, trip.members.length, recIdx++)
+              : tripSettlementHTML(item.data, recIdx++),
+          )
+          .join('')}
+      </div>
+    </div>`;
+  }
+
   return days
     .map((d, dayIdx) => {
       const list = byDay[d];
-      list.sort((a, b) => {
-        const ia = orderIdx.get(a.data.id) ?? -1;
-        const ib = orderIdx.get(b.data.id) ?? -1;
-        return ib - ia;
-      });
+      sortDayList(list);
       const expensesOnly = list.filter(x => x.kind === 'expense').map(x => x.data);
       const sub = expensesOnly.filter(e => !e._voided).reduce((s, e) => s + e.amount, 0);
       const subLabel = `小計 NT$${Math.round(sub).toLocaleString()}`;
@@ -854,11 +1049,36 @@ function updateMultiPayTotal() {
   }
 }
 
+export function shiftTripHistoryWeek(delta) {
+  appState.tripDetailHistoryWeekOffset += delta;
+  if (appState.tripDetailHistoryWeekOffset < 0) appState.tripDetailHistoryWeekOffset = 0;
+  renderTripDetail();
+}
+
+export function selectTripHistoryDay(ds) {
+  if (appState.tripDetailHistoryFilterDate === ds) {
+    appState.tripDetailHistoryFilterDate = null;
+  } else {
+    appState.tripDetailHistoryFilterDate = ds;
+  }
+  renderTripDetail();
+}
+
+export function clearTripHistoryDayFilter() {
+  appState.tripDetailHistoryFilterDate = null;
+  renderTripDetail();
+}
+
 export function renderTripDetail() {
   const trip = getTripById(appState.currentTripId);
   if (!trip) {
     if (appState.currentPage === 'tripDetail') navigate('trips');
     return;
+  }
+  if (appState._tripDetailHistoryTripId !== trip.id) {
+    appState.tripDetailHistoryWeekOffset = 0;
+    appState.tripDetailHistoryFilterDate = null;
+    appState._tripDetailHistoryTripId = trip.id;
   }
   const expenses = getTripExpenses(appState.currentTripId);
   const settlements = getTripSettlementDisplayRowsFromRows(appState.currentTripId, appState.allRows);
@@ -941,10 +1161,38 @@ export function renderTripDetail() {
 
   const expEl = document.getElementById('detail-expenses');
   if (expEl._scrollRevealCleanup) expEl._scrollRevealCleanup();
+  const range = tripHistoryDateRange(trip, expenses, settlements);
+  const firstSunday = sundayOnOrBefore(range.start);
+  const lastSunday = sundayOnOrBefore(range.end);
+  const maxWeekOffset = tripHistoryMaxWeekOffset(firstSunday, lastSunday);
+  if (appState.tripDetailHistoryWeekOffset > maxWeekOffset) {
+    appState.tripDetailHistoryWeekOffset = maxWeekOffset;
+  }
+  const statsByDate = tripStatsByDateFromTrip(expenses, settlements);
+  const today = todayStr();
+  const filterDate = appState.tripDetailHistoryFilterDate;
+  const { html: stripHtml, rangeMeta: tripHistoryRangeMeta } = tripHistoryStripHTML(
+    range,
+    appState.tripDetailHistoryWeekOffset,
+    statsByDate,
+    filterDate,
+    today,
+  );
+  const headerMetaEl = document.getElementById('trip-history-range-meta');
+  if (headerMetaEl) {
+    headerMetaEl.textContent = tripHistoryRangeMeta;
+    headerMetaEl.hidden = !tripHistoryRangeMeta;
+  }
   if (expenses.length === 0 && settlements.length === 0) {
-    expEl.innerHTML = emptyHTML('還沒有消費或還款紀錄', '');
+    expEl.innerHTML = `${stripHtml}<div class="trip-history-list">${emptyHTML('還沒有消費或還款紀錄', '')}</div>`;
   } else {
-    expEl.innerHTML = buildTripExpensesByDayHTML(expenses, settlements, trip, appState.allRows);
+    expEl.innerHTML = `${stripHtml}<div class="trip-history-list">${buildTripExpensesByDayHTML(
+      expenses,
+      settlements,
+      trip,
+      appState.allRows,
+      filterDate,
+    )}</div>`;
   }
 
   const doReveal = appState.revealTripExpensesNext;

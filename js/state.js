@@ -17,10 +17,20 @@ export const appState = {
   homePaidBy: USER_A,
   homeSplitMode: '均分',
   homeShowAll: false,
+  /** 日常「歷史紀錄」月曆：`YYYY-MM`（由 renderHome 初始化為當月） */
+  homeCalendarMonth: null,
+  /** 選中單日時 `YYYY-MM-DD`；null 表示不篩選日期 */
+  homeCalendarFilterDate: null,
+  /** 日常月曆彈層是否開啟 */
+  homeCalendarModalOpen: false,
   /** 下次繪製日常／行程列表時，對紀錄列做捲動進場（進頁或展開更多） */
   revealHomeRecordsNext: false,
   /** 下次繪製行程明細消費列表時做捲動進場 */
   revealTripExpensesNext: false,
+  /** 出遊歷史：日期條「每列 7 天」從行程起點往後的第幾頁（0 起算） */
+  tripDetailHistoryWeekOffset: 0,
+  /** 出遊歷史：選中單日 `YYYY-MM-DD`；null 表示顯示全部（依日期分組） */
+  tripDetailHistoryFilterDate: null,
   /** 下次繪製行程列表時，「已結束行程」標題與銜接卡片刻進場 */
   revealTripsSectionNext: false,
   /** 成員目錄抽屜開啟後列表列進場（一次） */
@@ -37,6 +47,12 @@ export const appState = {
   _tripSettlementCache: [],
 
   analysisPeriod: 'month',
+  /** 分析頁：相對於「本週／本月／本年」的位移（上一段為負） */
+  analysisWeekOffset: 0,
+  analysisMonthOffset: 0,
+  analysisYearOffset: 0,
+  /** 分析頁：點選單日時 `YYYY-MM-DD`；null 表示該週／該月整段 */
+  analysisFilterDate: null,
   /** 分析頁圓餅環上：分類 / 比例 / 金額（可各別關閉） */
   ...(() => {
     try {

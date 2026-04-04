@@ -5,6 +5,19 @@ import { computeBalance } from './finance.js';
 import { categoryBadgeHTML } from './category.js';
 import { esc, jq, jqAttr, prefersReducedMotion, bindScrollReveal } from './utils.js';
 import { emptyHTML } from './views-shared.js';
+import {
+  computeDateRunningDeltas,
+  directionClassFromDelta,
+  directionAriaFromDelta,
+  formatCalendarDayDeltaText,
+} from './views-analysis.js';
+import {
+  buildCalendarGridCells,
+  currentYm,
+  formatMonthLabelZh,
+  shiftYm,
+  todayStr,
+} from './time.js';
 
 let balanceCountGen = 0;
 let prevHomeDailyExpCount = null;
@@ -13,6 +26,111 @@ let prevBalanceBarClass = '';
 /** 樂觀更新失敗時呼叫，中止進行中的結算數字刷動 */
 export function cancelHomeBalanceAnim() {
   balanceCountGen++;
+}
+
+/**
+ * @param {import('./model.js').LedgerRow[]} orderedOldestFirst
+ * @returns {Record<string, number>}
+ */
+function buildRunningBalanceMap(orderedOldestFirst) {
+  let running = 0;
+  const balanceMap = {};
+  for (const r of orderedOldestFirst) {
+    if (!r._voided) {
+      const a = parseFloat(r.amount) || 0;
+      if (r.type === 'settlement') {
+        if (r.paidBy === USER_A) running += a;
+        else running -= a;
+      } else if (r.splitMode === '兩人付') {
+        const hu = parseFloat(r.paidHu) || 0;
+        const zhan = parseFloat(r.paidZhan) || 0;
+        running += (hu - zhan) / 2;
+      } else {
+        let shareZhan = 0;
+        let shareHu = 0;
+        if (r.splitMode === '均分') {
+          shareHu = a / 2;
+          shareZhan = a / 2;
+        } else if (r.splitMode === '只有胡') {
+          shareHu = a;
+        } else {
+          shareZhan = a;
+        }
+        if (r.paidBy === USER_A) running += shareZhan;
+        else running -= shareHu;
+      }
+    }
+    balanceMap[r.id] = running;
+  }
+  return balanceMap;
+}
+
+/** @param {import('./model.js').LedgerRow[]} records */
+function aggregateCountsByDateInMonth(records, ym) {
+  const m = new Map();
+  for (const r of records) {
+    if (!r.date || !r.date.startsWith(ym + '-')) continue;
+    m.set(r.date, (m.get(r.date) || 0) + 1);
+  }
+  return m;
+}
+
+/**
+ * @param {string} ym
+ * @param {string | null} filterDate
+ * @param {string} today
+ * @param {Map<string, number>} statsByDate
+ */
+function homeCalendarHTML(ym, filterDate, today, statsByDate) {
+  const cells = buildCalendarGridCells(ym);
+  const monthDates = cells.filter(c => c.day != null).map(c => c.dateStr);
+  const deltaByDate = computeDateRunningDeltas(getDailyRecords(), monthDates);
+  const label = formatMonthLabelZh(ym);
+  const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+  const wdRow = weekdayLabels.map(w => `<div class="home-cal-wd">${esc(w)}</div>`).join('');
+  const numRows = cells.length / 7;
+  const rows = [];
+  for (let row = 0; row < numRows; row++) {
+    const rowCells = cells.slice(row * 7, row * 7 + 7).map(cell => {
+      if (cell.day == null) {
+        return '<div class="home-cal-cell home-cal-cell--empty" aria-hidden="true"></div>';
+      }
+      const ds = cell.dateStr;
+      const has = statsByDate.get(ds) || 0;
+      const isToday = ds === today;
+      const isSel = filterDate === ds;
+      const dDelta = deltaByDate.get(ds);
+      const dirCls = directionClassFromDelta(dDelta);
+      const ariaDir = directionAriaFromDelta(dDelta);
+      const deltaTxt = formatCalendarDayDeltaText(dDelta);
+      const deltaEl =
+        dDelta != null
+          ? `<span class="cal-cell-delta" aria-hidden="true">${esc(deltaTxt)}</span>`
+          : '';
+      const ariaBase = has > 0 ? `${ds}，${has} 筆` : ds;
+      const ariaAmt = dDelta != null ? `，結算淨額 ${deltaTxt}` : '';
+      const aria = `${ariaBase}${ariaAmt}${ariaDir}`;
+      return `<button type="button" class="home-cal-cell${isToday ? ' home-cal-cell--today' : ''}${isSel ? ' home-cal-cell--selected' : ''}${dirCls}"
+        role="gridcell"
+        onclick='selectHomeCalendarDay(${jq(ds)})'
+        aria-label="${esc(aria)}"
+        aria-pressed="${isSel ? 'true' : 'false'}"><span class="home-cal-cell-day">${cell.day}</span>${deltaEl}</button>`;
+    });
+    rows.push(`<div class="home-cal-row" role="row">${rowCells.join('')}</div>`);
+  }
+  return `
+    <div class="home-cal-nav">
+      <button type="button" class="home-cal-nav-btn" onclick="shiftHomeCalendarMonth(-1)" aria-label="上一個月">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div class="home-cal-nav-title" id="home-cal-month-label">${esc(label)}</div>
+      <button type="button" class="home-cal-nav-btn" onclick="shiftHomeCalendarMonth(1)" aria-label="下一個月">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+    </div>
+    <div class="home-cal-weekdays">${wdRow}</div>
+    <div class="home-cal-grid" role="grid" aria-labelledby="home-cal-month-label">${rows.join('')}</div>
+  `;
 }
 
 function runBalanceAmountCountUp(mainEl, settleBtn, fromAbs, toAbs, onDone, durationMs = 980) {
@@ -141,53 +259,65 @@ export function renderHome() {
   prevBalanceBarClass = barClsNow;
   sub.textContent = expCount > 0 ? '共 ' + expCount + ' 筆消費' : '';
 
-  const ordered = [...records].reverse();
-  let running = 0;
-  const balanceMap = {};
-  for (const r of ordered) {
-    if (!r._voided) {
-      const a = parseFloat(r.amount) || 0;
-      if (r.type === 'settlement') {
-        if (r.paidBy === USER_A) running += a;
-        else running -= a;
-      } else if (r.splitMode === '兩人付') {
-        const hu = parseFloat(r.paidHu) || 0;
-        const zhan = parseFloat(r.paidZhan) || 0;
-        running += (hu - zhan) / 2;
-      } else {
-        let shareZhan = 0;
-        let shareHu = 0;
-        if (r.splitMode === '均分') {
-          shareHu = a / 2;
-          shareZhan = a / 2;
-        } else if (r.splitMode === '只有胡') {
-          shareHu = a;
-        } else {
-          shareZhan = a;
-        }
-        if (r.paidBy === USER_A) running += shareZhan;
-        else running -= shareHu;
-      }
+  if (!appState.homeCalendarMonth) {
+    appState.homeCalendarMonth = appState.homeCalendarFilterDate
+      ? appState.homeCalendarFilterDate.slice(0, 7)
+      : currentYm();
+  }
+  if (appState.homeCalendarFilterDate) {
+    const ymF = appState.homeCalendarFilterDate.slice(0, 7);
+    if (ymF !== appState.homeCalendarMonth) {
+      appState.homeCalendarMonth = ymF;
     }
-    balanceMap[r.id] = running;
+  }
+
+  const ym = appState.homeCalendarMonth;
+  const filterDate = appState.homeCalendarFilterDate;
+  const today = todayStr();
+
+  const statsByDate = aggregateCountsByDateInMonth(records, ym);
+
+  const orderedFull = [...records].reverse();
+  const balanceMap =
+    filterDate != null
+      ? buildRunningBalanceMap([...records.filter(r => r.date === filterDate)].reverse())
+      : buildRunningBalanceMap(orderedFull);
+
+  let scoped;
+  if (records.length === 0) {
+    scoped = [];
+  } else if (filterDate) {
+    scoped = records.filter(r => r.date === filterDate);
+  } else {
+    scoped = records;
+  }
+
+  const calendarEl = document.getElementById('home-calendar');
+  if (calendarEl) {
+    calendarEl.innerHTML = homeCalendarHTML(ym, filterDate, today, statsByDate);
   }
 
   const listEl = document.getElementById('home-records');
   if (listEl._scrollRevealCleanup) listEl._scrollRevealCleanup();
   if (records.length === 0) {
     listEl.innerHTML = emptyHTML('還沒有消費紀錄', '填寫上方表單，開始記帳吧');
+  } else if (scoped.length === 0) {
+    const hint = filterDate ? '這天沒有紀錄' : '還沒有消費紀錄';
+    const subhint = filterDate ? '換一天，或再點月曆上同一日以顯示全部' : '填寫上方表單，開始記帳吧';
+    listEl.innerHTML = emptyHTML(hint, subhint);
   } else {
     const LIMIT = 5;
-    const visible = appState.homeShowAll ? records : records.slice(0, LIMIT);
-    const hidden = records.length - visible.length;
+    const useLimit = !appState.homeShowAll;
+    const visible = useLimit ? scoped.slice(0, LIMIT) : scoped;
+    const hidden = scoped.length - visible.length;
     const moreBtn =
       hidden > 0
-        ? `<button class="show-more-btn" onclick="toggleHomeHistory()">
+        ? `<button type="button" class="show-more-btn" onclick="toggleHomeHistory()">
            <svg viewBox="0 0 24 24" width="14" height="14" style="fill:currentColor"><path d="M7 10l5 5 5-5z"/></svg>
            查看更多 ${hidden} 筆
          </button>`
-        : records.length > LIMIT
-          ? `<button class="show-more-btn" onclick="toggleHomeHistory()">
+        : scoped.length > LIMIT && appState.homeShowAll
+          ? `<button type="button" class="show-more-btn" onclick="toggleHomeHistory()">
              <svg viewBox="0 0 24 24" width="14" height="14" style="fill:currentColor"><path d="M7 14l5-5 5 5z"/></svg>
              收合
            </button>`
@@ -198,6 +328,8 @@ export function renderHome() {
     appState.revealHomeRecordsNext = false;
     bindScrollReveal(listEl, '.record-item', { enabled: doReveal });
   }
+
+  syncHomeCalendarModalDom();
 
   const pageHome = document.getElementById('page-home');
   if (pageHome) {
@@ -224,6 +356,60 @@ export function renderHome() {
 export function toggleHomeHistory() {
   appState.homeShowAll = !appState.homeShowAll;
   if (appState.homeShowAll) appState.revealHomeRecordsNext = true;
+  renderHome();
+}
+
+function syncHomeCalendarModalDom() {
+  const overlay = document.getElementById('home-calendar-modal-overlay');
+  const sheet = document.getElementById('home-calendar-modal');
+  const openBtn = document.getElementById('home-calendar-open-btn');
+  const open = appState.homeCalendarModalOpen;
+  if (overlay) {
+    overlay.classList.toggle('home-cal-modal-overlay--open', !!open);
+    overlay.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  if (sheet) {
+    sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  if (openBtn) {
+    openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  try {
+    document.body.style.overflow = open ? 'hidden' : '';
+  } catch {
+    /* ignore */
+  }
+}
+
+export function toggleHomeCalendarModal() {
+  appState.homeCalendarModalOpen = !appState.homeCalendarModalOpen;
+  syncHomeCalendarModalDom();
+}
+
+export function closeHomeCalendarModal() {
+  appState.homeCalendarModalOpen = false;
+  syncHomeCalendarModalDom();
+}
+
+export function shiftHomeCalendarMonth(delta) {
+  appState.homeCalendarMonth = shiftYm(appState.homeCalendarMonth || currentYm(), delta);
+  appState.homeCalendarFilterDate = null;
+  renderHome();
+}
+
+export function selectHomeCalendarDay(dateStr) {
+  if (appState.homeCalendarFilterDate === dateStr) {
+    appState.homeCalendarFilterDate = null;
+  } else {
+    appState.homeCalendarFilterDate = dateStr;
+    appState.homeCalendarMonth = dateStr.slice(0, 7);
+  }
+  /* 保持彈層開啟，才能看到選取樣式並再點同一日取消 */
+  renderHome();
+}
+
+export function clearHomeCalendarDayFilter() {
+  appState.homeCalendarFilterDate = null;
   renderHome();
 }
 
@@ -282,7 +468,7 @@ function dailyRecordHTML(r, runBal, recordIndex = 0) {
         <div class="record-meta">${esc(r.date)}</div>
       </div>
       <div class="record-amount-wrap">
-        <div class="record-amount" style="color:${r._voided ? '#9ca3af' : '#065f46'}">NT$${Math.round(a)}</div>
+        <div class="record-amount${r._voided ? '' : ' record-amount--settle'}" style="${r._voided ? 'color:#9ca3af' : ''}">NT$${Math.round(a)}</div>
         ${runningHTML(runBal)}
       </div>
     </div>`;

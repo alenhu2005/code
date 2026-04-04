@@ -297,9 +297,28 @@
             <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
             歷史紀錄
           </div>
+          <button type="button" class="btn btn-outline btn-sm home-calendar-open-btn" id="home-calendar-open-btn" onclick="toggleHomeCalendarModal()" aria-label="開啟月曆" aria-expanded="false" aria-controls="home-calendar-modal">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+            月曆
+          </button>
         </div>
-        <div class="card" id="home-records"></div>
+        <div class="card home-history-card" id="home-history">
+          <div class="home-records-wrap" id="home-records"></div>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 日常：月曆彈層（#home-calendar 由 JS 填入） -->
+  <div class="home-cal-modal-overlay" id="home-calendar-modal-overlay" onclick="if(event.target===this)closeHomeCalendarModal()" aria-hidden="true">
+    <div class="home-cal-modal-sheet" id="home-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="home-cal-modal-title" aria-hidden="true" onclick="event.stopPropagation()">
+      <div class="home-cal-modal-header">
+        <h2 id="home-cal-modal-title" class="home-cal-modal-title">依日期瀏覽</h2>
+        <button type="button" class="member-dir-close" onclick="closeHomeCalendarModal()" aria-label="關閉">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div id="home-calendar" class="home-calendar" aria-label="依日期瀏覽"></div>
     </div>
   </div>
 
@@ -509,12 +528,15 @@
       <!-- Expense history -->
       <div class="card" id="detail-expenses-card">
         <button type="button" class="card-header card-header--toggle" id="detail-expenses-header-toggle" onclick="toggleCollapsible('detail-expenses-panel','detail-expenses-toggle-icon','detail-expenses-header-toggle')" aria-expanded="true" aria-controls="detail-expenses-panel" title="收合／展開歷史紀錄">
-          <span class="card-title">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-            歷史紀錄
+          <span class="card-title-block">
+            <span class="card-title">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              歷史紀錄
+            </span>
+            <span id="trip-history-range-meta" class="trip-history-header-meta" hidden aria-live="polite"></span>
           </span>
           <span class="card-header-trail">
-            <span class="detail-expenses-hint">依日期分組</span>
+            <span class="detail-expenses-hint">上方選日期／分組</span>
             <span class="toggle-btn toggle-btn--header-decor" aria-hidden="true">
               <svg id="detail-expenses-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
             </span>

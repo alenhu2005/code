@@ -1,7 +1,7 @@
 import { appState } from './state.js';
 import { render } from './render-registry.js';
 import { persistSessionSnapshot } from './session-ui.js';
-import { cancelHomeBalanceAnim } from './views-home.js';
+import { cancelHomeBalanceAnim, closeHomeCalendarModal } from './views-home.js';
 import { cancelAnalysisCountAnim } from './views-analysis.js';
 import { cancelTripSettlementAnim, resetTripDetailAmountDraft } from './views-trip-detail.js';
 
@@ -16,6 +16,7 @@ export function navigate(page, tripId = null, opts = {}) {
   const prevTripId = appState.currentTripId;
   if (prevPage === 'home' && page !== 'home') {
     cancelHomeBalanceAnim();
+    closeHomeCalendarModal();
   }
   if (prevPage === 'analysis' && page !== 'analysis') {
     cancelAnalysisCountAnim();
@@ -23,8 +24,15 @@ export function navigate(page, tripId = null, opts = {}) {
   if (prevPage === 'tripDetail' && page !== 'tripDetail') {
     cancelTripSettlementAnim();
     appState.detailGamblingMode = false;
+    appState.tripDetailHistoryWeekOffset = 0;
+    appState.tripDetailHistoryFilterDate = null;
     // UX: do not keep amount draft when leaving trip detail.
     try { resetTripDetailAmountDraft(); } catch { /* ignore */ }
+    const tripHistoryMeta = document.getElementById('trip-history-range-meta');
+    if (tripHistoryMeta) {
+      tripHistoryMeta.textContent = '';
+      tripHistoryMeta.hidden = true;
+    }
   }
   appState.currentPage = page;
   appState.currentTripId = tripId;

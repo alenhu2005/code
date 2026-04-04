@@ -5,8 +5,28 @@
 import { navigate } from './navigation.js';
 import { cancelDialog } from './dialog.js';
 import { toggleTheme } from './theme.js';
-import { toggleHomeHistory } from './views-home.js';
-import { setAnalysisPeriod, setPieLabelOption } from './views-analysis.js';
+import {
+  toggleHomeHistory,
+  shiftHomeCalendarMonth,
+  selectHomeCalendarDay,
+  clearHomeCalendarDayFilter,
+  toggleHomeCalendarModal,
+  closeHomeCalendarModal,
+} from './views-home.js';
+import {
+  setAnalysisPeriod,
+  setPieLabelOption,
+  shiftAnalysisWeek,
+  shiftAnalysisMonth,
+  shiftAnalysisYear,
+  selectAnalysisDay,
+  clearAnalysisDayFilter,
+} from './views-analysis.js';
+import {
+  shiftTripHistoryWeek,
+  selectTripHistoryDay,
+  clearTripHistoryDayFilter,
+} from './views-trip-detail.js';
 import * as actions from './actions.js';
 import {
   startTripLotteryDraw,
@@ -146,8 +166,21 @@ Object.assign(window, {
   closeBackupMenu: actions.closeBackupMenu,
   toggleTheme,
   toggleHomeHistory,
+  shiftHomeCalendarMonth,
+  selectHomeCalendarDay,
+  clearHomeCalendarDayFilter,
+  toggleHomeCalendarModal,
+  closeHomeCalendarModal,
   setAnalysisPeriod,
   setPieLabelOption,
+  shiftAnalysisWeek,
+  shiftAnalysisMonth,
+  shiftAnalysisYear,
+  selectAnalysisDay,
+  clearAnalysisDayFilter,
+  shiftTripHistoryWeek,
+  selectTripHistoryDay,
+  clearTripHistoryDayFilter,
   closeEditRecord: actions.closeEditRecord,
   submitEditRecord: actions.submitEditRecord,
   voidEditingRecord: actions.voidEditingRecord,

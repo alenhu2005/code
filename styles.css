@@ -470,6 +470,35 @@
       flex: 1;
       min-width: 0;
     }
+    #page-trip-detail #detail-expenses-card > .card-header .card-title-block {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    #page-trip-detail #detail-expenses-card > .card-header .card-title-block > .card-title {
+      flex: 0 1 auto;
+    }
+    .trip-history-header-meta {
+      flex: 0 1 auto;
+      min-width: 0;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text-muted);
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    /* 收合歷史紀錄時不顯示行程區間（標題列仍保留「歷史紀錄」與箭頭） */
+    #detail-expenses-card:has(#detail-expenses-panel:not(.is-open)) .trip-history-header-meta {
+      display: none !important;
+    }
+    #page-trip-detail #detail-expenses-card .detail-expenses-hint {
+      display: none;
+    }
     /* 出遊：數字炸彈（全螢幕；入口在抽籤浮層底部） */
     .trip-number-bomb-overlay {
       position: fixed;
@@ -1224,6 +1253,9 @@
       padding: 0 0 8px;
       transition: padding-top 0.38s var(--ease-soft), padding-bottom 0.38s var(--ease-soft);
     }
+    #page-trip-detail #detail-expenses-card .detail-expenses-panel-inner {
+      padding-bottom: 6px;
+    }
     .collapsible-panel:not(.is-open) .detail-expenses-panel-inner {
       padding-top: 0;
       padding-bottom: 0;
@@ -1233,6 +1265,18 @@
     #detail-expenses .record-item {
       padding: 10px calc(24px + env(safe-area-inset-right, 0px)) 10px calc(24px + env(safe-area-inset-left, 0px));
       align-items: flex-start;
+    }
+    /* 多行標題＋副標時，頭像／金額／照片按鈕相對整列垂直置中（列仍 flex-start 以容納稀有款外圈） */
+    #detail-expenses .record-item > .record-avatar,
+    #detail-expenses .record-item > .record-photo-btn {
+      align-self: center;
+    }
+    #page-trip-detail #detail-expenses .record-item {
+      padding-top: 8px;
+      padding-bottom: 8px;
+      /* 與上方日期列左右對齊，視覺上較靠左、不額外內縮 */
+      padding-left: calc(16px + env(safe-area-inset-left, 0px));
+      padding-right: calc(16px + env(safe-area-inset-right, 0px));
     }
     /* 優先顯示完整消費名稱：不截斷 …，名稱獨占一行可換行；徽章／分類在下一行 */
     #detail-expenses .record-name {
@@ -1256,7 +1300,8 @@
       flex-shrink: 0;
     }
     #detail-expenses .record-amount {
-      margin-top: 1px;
+      align-self: center;
+      margin-top: 0;
     }
 
     /* ice — make protrusions unmistakable (icy crown) */
@@ -1304,9 +1349,218 @@
     .record-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .record-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .record-amount { font-size: 15px; font-weight: 600; flex-shrink: 0; }
+    /* 還款列金額（勿用內嵌深綠，深色模式對比不足） */
+    .record-amount--settle {
+      color: #065f46;
+    }
+    html.dark .record-amount--settle {
+      color: #6ee7b7;
+    }
     /* ── Voided records ── */
     .record-item.is-voided { background: #fee2e2; }
     .badge-void { background: #fecaca; color: #991b1b; }
+
+    /* ── 日常：歷史紀錄月曆（與列表同卡） ── */
+    .home-history-card {
+      padding: 0;
+      overflow: hidden;
+    }
+    .home-calendar-open-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .home-calendar-open-btn svg {
+      flex-shrink: 0;
+      fill: currentColor;
+    }
+    .home-cal-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10040;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(2px);
+    }
+    .home-cal-modal-overlay--open {
+      display: flex;
+    }
+    .home-cal-modal-sheet {
+      width: 100%;
+      max-width: 400px;
+      max-height: min(90vh, 640px);
+      overflow: auto;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    }
+    .home-cal-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 1;
+    }
+    .home-cal-modal-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .home-cal-modal-sheet .home-calendar {
+      padding: 12px 14px 14px;
+      border-bottom: none;
+    }
+    .home-records-wrap {
+      min-height: 0;
+    }
+    .home-records-wrap .record-item:first-child {
+      border-top: none;
+    }
+    .home-cal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .home-cal-nav-btn {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 10px;
+      background: var(--surface-elevated, #f8fafc);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+    .home-cal-nav-btn:hover {
+      background: #f0f9ff;
+    }
+    .home-cal-nav-btn svg {
+      fill: currentColor;
+      display: block;
+    }
+    .home-cal-nav-title {
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      flex: 1;
+      min-width: 0;
+    }
+    .home-cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 4px;
+    }
+    .home-cal-wd {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 2px 0;
+    }
+    .home-cal-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .home-cal-row {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      align-items: stretch;
+    }
+    .home-cal-cell {
+      position: relative;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      justify-self: stretch;
+      align-self: stretch;
+      min-height: 44px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 3px 4px;
+      gap: 2px;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .home-cal-cell-day {
+      line-height: 1.15;
+    }
+    /* 有淨額時兩行：保留間距與內距，避免數字與淨額貼太緊 */
+    .home-cal-cell:has(.cal-cell-delta) {
+      gap: 3px;
+      padding: 5px 4px 6px;
+      min-height: 48px;
+      justify-content: center;
+    }
+    .home-cal-cell:has(.cal-cell-delta) .home-cal-cell-day {
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    /* 與分析頁月曆格共用：該日結算淨額（正＝詹欠胡，負＝胡欠詹） */
+    .cal-cell-delta {
+      font-size: 8px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .home-cal-cell:hover:not(.home-cal-cell--empty) {
+      background: #f1f5f9;
+    }
+    .home-cal-cell--empty {
+      cursor: default;
+      min-height: 0;
+      pointer-events: none;
+    }
+    .home-cal-cell--today {
+      box-shadow: inset 0 0 0 2px var(--primary);
+    }
+    .home-cal-cell--selected {
+      background: rgba(71, 85, 105, 0.16);
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      color: #334155;
+      font-weight: 700;
+    }
+    .home-cal-cell--selected .cal-cell-delta {
+      color: #475569;
+      opacity: 1;
+    }
+    .home-cal-cell--selected.home-cal-cell--today {
+      border-color: rgba(71, 85, 105, 0.45);
+      box-shadow: inset 0 0 0 2px rgba(71, 85, 105, 0.5);
+    }
 
     /* ── Expand history ── */
     .show-more-btn {
@@ -1349,8 +1603,322 @@
     .analysis-tabs {
       display: flex;
       gap: 8px;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       animation: analysisBlockIn 0.42s var(--ease-out) both;
+    }
+    .analysis-period-nav {
+      margin-bottom: 10px;
+      animation: analysisBlockIn 0.42s var(--ease-out) 0.02s both;
+    }
+    .analysis-cal-nav-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .analysis-nav-btn {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 10px;
+      background: var(--surface-elevated, #f8fafc);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+    .analysis-nav-btn:hover {
+      background: #f1f5f9;
+    }
+    .analysis-nav-btn svg {
+      fill: currentColor;
+      display: block;
+    }
+    .analysis-cal-nav-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      flex: 1;
+      min-width: 0;
+    }
+    .analysis-week-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    button.analysis-week-cell {
+      text-align: center;
+      padding: 8px 2px 6px;
+      border-radius: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid transparent;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+      width: 100%;
+    }
+    button.analysis-week-cell:hover {
+      background: #f1f5f9;
+    }
+    .analysis-week-cell--selected {
+      background: rgba(71, 85, 105, 0.14);
+      border-color: rgba(71, 85, 105, 0.38);
+      color: #334155;
+    }
+    .analysis-week-cell--selected .analysis-week-wd {
+      color: #475569;
+    }
+    .analysis-week-cell--selected .analysis-week-day {
+      color: #334155;
+    }
+    .analysis-week-wd {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .analysis-week-day {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .analysis-week-cell--today {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+    }
+    .analysis-cal-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-bottom: 4px;
+    }
+    .analysis-cal-wd {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 2px 0;
+    }
+    .analysis-cal-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .analysis-cal-row {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      align-items: stretch;
+    }
+    button.analysis-cal-cell {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      justify-self: stretch;
+      align-self: stretch;
+      min-height: 42px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 3px 4px;
+      gap: 2px;
+      background: var(--bg-secondary);
+      border: 1px solid transparent;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    .analysis-cal-cell-day {
+      line-height: 1.15;
+    }
+    button.analysis-cal-cell:has(.cal-cell-delta) {
+      gap: 3px;
+      padding: 5px 4px 6px;
+      min-height: 46px;
+    }
+    button.analysis-cal-cell:has(.cal-cell-delta) .analysis-cal-cell-day {
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    button.analysis-cal-cell:hover {
+      background: #f1f5f9;
+    }
+    .analysis-cal-cell--selected {
+      background: rgba(71, 85, 105, 0.14);
+      border: 1px solid rgba(71, 85, 105, 0.38);
+      color: #334155;
+    }
+    .analysis-cal-cell--selected .cal-cell-delta {
+      color: #475569;
+    }
+    .analysis-cal-cell--empty {
+      min-height: 0;
+      background: transparent;
+    }
+    .analysis-cal-cell--today {
+      box-shadow: inset 0 0 0 2px var(--primary);
+    }
+    .analysis-filter-clear-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .analysis-year-months {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+    .analysis-year-mo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 54px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 3px;
+      background: var(--bg-secondary);
+      color: var(--text);
+      text-align: center;
+    }
+    .analysis-year-mo-label {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.15;
+    }
+    .analysis-year-mo-amt {
+      font-size: 10px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      max-width: 100%;
+    }
+    .analysis-year-mo-amt--zero {
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    /* 結算淨向（週／月／年共用；正＝詹欠胡，負＝胡欠詹） */
+    .analysis-year-mo.analysis-period-dir--zhan-owes,
+    button.analysis-week-cell.analysis-period-dir--zhan-owes {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.06);
+    }
+    .analysis-year-mo.analysis-period-dir--hu-owes,
+    button.analysis-week-cell.analysis-period-dir--hu-owes {
+      border-color: rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .analysis-year-mo.analysis-period-dir--neutral,
+    button.analysis-week-cell.analysis-period-dir--neutral {
+      border-color: rgba(148, 163, 184, 0.55);
+      background: rgba(148, 163, 184, 0.08);
+    }
+    button.analysis-cal-cell.analysis-period-dir--zhan-owes,
+    button.home-cal-cell.analysis-period-dir--zhan-owes {
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.06);
+    }
+    button.analysis-cal-cell.analysis-period-dir--hu-owes,
+    button.home-cal-cell.analysis-period-dir--hu-owes {
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.06);
+    }
+    button.analysis-cal-cell.analysis-period-dir--neutral,
+    button.home-cal-cell.analysis-period-dir--neutral {
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: rgba(148, 163, 184, 0.08);
+    }
+    button.analysis-week-cell.analysis-period-dir--zhan-owes:hover {
+      background: rgba(16, 185, 129, 0.1);
+    }
+    button.analysis-week-cell.analysis-period-dir--hu-owes:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+    button.analysis-week-cell.analysis-period-dir--neutral:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    button.analysis-cal-cell.analysis-period-dir--zhan-owes:hover,
+    button.home-cal-cell.analysis-period-dir--zhan-owes:hover {
+      background: rgba(16, 185, 129, 0.1);
+    }
+    button.analysis-cal-cell.analysis-period-dir--hu-owes:hover,
+    button.home-cal-cell.analysis-period-dir--hu-owes:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+    button.analysis-cal-cell.analysis-period-dir--neutral:hover,
+    button.home-cal-cell.analysis-period-dir--neutral:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--selected,
+    button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--selected,
+    button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--selected {
+      border-color: rgba(71, 85, 105, 0.45);
+      background: rgba(71, 85, 105, 0.14);
+      color: #334155;
+    }
+    button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--selected,
+    button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--selected,
+    button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--selected,
+    button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--selected,
+    button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--selected,
+    button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--selected {
+      border-color: rgba(71, 85, 105, 0.45);
+      background: rgba(71, 85, 105, 0.16);
+      color: #334155;
+    }
+    button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--selected .cal-cell-delta,
+    button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--selected .cal-cell-delta,
+    button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--selected .cal-cell-delta,
+    button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--selected .cal-cell-delta,
+    button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--selected .cal-cell-delta,
+    button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--selected .cal-cell-delta {
+      color: #475569;
+    }
+    button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--today {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--today {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--today {
+      border-color: var(--primary);
+      box-shadow: inset 0 0 0 1px var(--primary);
+      background: rgba(148, 163, 184, 0.1);
+    }
+    button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--today,
+    button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--today {
+      box-shadow: inset 0 0 0 2px var(--primary);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--today,
+    button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--today {
+      box-shadow: inset 0 0 0 2px var(--primary);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--today,
+    button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--today {
+      box-shadow: inset 0 0 0 2px var(--primary);
+      background: rgba(148, 163, 184, 0.1);
     }
     .analysis-period {
       text-align: center;
@@ -3493,8 +4061,8 @@
       --bg: #0f172a;
       --surface: #1e293b;
       --border: #334155;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
+      --text: #f8fafc;
+      --text-muted: #cbd5e1;
       --shadow: 0 1px 3px rgba(0,0,0,.3);
       --bg-secondary: #1e293b;
       --bg-tertiary: #334155;
@@ -3514,6 +4082,8 @@
     html.dark .sync-status-badge--err { background: #7f1d1d; color: #fecaca; }
     html.dark .sync-status-badge--syncing { background: rgba(59,130,246,.2); color: #93c5fd; }
     html.dark #loading-overlay { background: #0f172a; color: var(--text); }
+    html.dark .record-running.pos { color: #34d399; }
+    html.dark .record-running.neg { color: #f87171; }
     html.dark .record-item.is-settlement { background: rgba(6,78,59,.25); }
     html.dark .record-item.is-voided { background: rgba(127,29,29,.25); }
     html.dark .badge-settle { background: #064e3b; color: #6ee7b7; }
@@ -3522,6 +4092,33 @@
     html.dark .settle-btn:hover { background: #065f46; }
     html.dark .edit-photo-preview { background: #0f172a; }
     html.dark .show-more-btn:hover { background: rgba(59,130,246,.1); }
+    html.dark .home-cal-nav-btn {
+      background: #1e293b;
+    }
+    html.dark .home-cal-nav-btn:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    html.dark .home-cal-cell:hover:not(.home-cal-cell--empty) {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark .home-cal-cell--selected {
+      background: rgba(148, 163, 184, 0.2);
+      border-color: rgba(148, 163, 184, 0.42);
+      color: #e2e8f0;
+    }
+    html.dark .home-cal-cell--selected .cal-cell-delta {
+      color: #94a3b8;
+    }
+    html.dark .home-cal-cell--selected.home-cal-cell--today {
+      border-color: rgba(148, 163, 184, 0.45);
+      box-shadow: inset 0 0 0 2px rgba(148, 163, 184, 0.42);
+    }
+    html.dark .home-cal-modal-overlay {
+      background: rgba(0, 0, 0, 0.55);
+    }
+    html.dark .home-cal-modal-sheet {
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
     html.dark .form-input {
       background: #0f172a; border-color: var(--border);
       color: var(--text);
@@ -3531,7 +4128,7 @@
       background-color: #0f172a;
       color: var(--text);
       border-color: var(--border);
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
     }
     html.dark .btn-toggle {
       background: #0f172a; border-color: var(--border); color: var(--text-muted);
@@ -3545,6 +4142,153 @@
     }
     html.dark .analysis-stat-card:hover {
       box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    }
+    html.dark .analysis-nav-btn {
+      background: #1e293b;
+    }
+    html.dark .analysis-nav-btn:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    html.dark button.analysis-week-cell {
+      background: #1e293b;
+    }
+    html.dark button.analysis-week-cell:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark .analysis-week-cell--selected {
+      background: rgba(148, 163, 184, 0.18);
+      border-color: rgba(148, 163, 184, 0.38);
+      color: #e2e8f0;
+    }
+    html.dark .analysis-week-cell--selected .analysis-week-wd {
+      color: #94a3b8;
+    }
+    html.dark .analysis-week-cell--selected .analysis-week-day {
+      color: #e2e8f0;
+    }
+    html.dark button.analysis-cal-cell {
+      background: #1e293b;
+    }
+    html.dark button.analysis-cal-cell:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark .analysis-cal-cell--selected {
+      background: rgba(148, 163, 184, 0.2);
+      border-color: rgba(148, 163, 184, 0.38);
+      color: #e2e8f0;
+    }
+    html.dark .analysis-cal-cell--selected .cal-cell-delta {
+      color: #94a3b8;
+    }
+    html.dark .analysis-year-mo {
+      background: #1e293b;
+    }
+    html.dark .analysis-year-mo.analysis-period-dir--zhan-owes,
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes {
+      border-color: rgba(52, 211, 153, 0.5);
+      background: rgba(16, 185, 129, 0.12);
+    }
+    html.dark .analysis-year-mo.analysis-period-dir--hu-owes,
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes {
+      border-color: rgba(248, 113, 113, 0.5);
+      background: rgba(239, 68, 68, 0.1);
+    }
+    html.dark .analysis-year-mo.analysis-period-dir--neutral,
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral {
+      border-color: rgba(148, 163, 184, 0.4);
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--zhan-owes,
+    html.dark button.home-cal-cell.analysis-period-dir--zhan-owes {
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      background: rgba(16, 185, 129, 0.12);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--hu-owes,
+    html.dark button.home-cal-cell.analysis-period-dir--hu-owes {
+      border: 1px solid rgba(248, 113, 113, 0.5);
+      background: rgba(239, 68, 68, 0.1);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--neutral,
+    html.dark button.home-cal-cell.analysis-period-dir--neutral {
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--selected,
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--selected,
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--selected {
+      border-color: rgba(148, 163, 184, 0.45);
+      background: rgba(148, 163, 184, 0.18);
+      color: #e2e8f0;
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--selected .analysis-week-wd,
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--selected .analysis-week-wd,
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--selected .analysis-week-wd {
+      color: #94a3b8;
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--selected .analysis-week-day,
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--selected .analysis-week-day,
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--selected .analysis-week-day {
+      color: #e2e8f0;
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--selected,
+    html.dark button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--selected,
+    html.dark button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--selected,
+    html.dark button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--selected,
+    html.dark button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--selected,
+    html.dark button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--selected {
+      border-color: rgba(148, 163, 184, 0.45);
+      background: rgba(148, 163, 184, 0.2);
+      color: #e2e8f0;
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--selected .cal-cell-delta,
+    html.dark button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--selected .cal-cell-delta,
+    html.dark button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--selected .cal-cell-delta,
+    html.dark button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--selected .cal-cell-delta,
+    html.dark button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--selected .cal-cell-delta,
+    html.dark button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--selected .cal-cell-delta {
+      color: #94a3b8;
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes:hover {
+      background: rgba(16, 185, 129, 0.18);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes:hover {
+      background: rgba(239, 68, 68, 0.16);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral:hover {
+      background: rgba(148, 163, 184, 0.16);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--zhan-owes:hover,
+    html.dark button.home-cal-cell.analysis-period-dir--zhan-owes:hover {
+      background: rgba(16, 185, 129, 0.18);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--hu-owes:hover,
+    html.dark button.home-cal-cell.analysis-period-dir--hu-owes:hover {
+      background: rgba(239, 68, 68, 0.16);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--neutral:hover,
+    html.dark button.home-cal-cell.analysis-period-dir--neutral:hover {
+      background: rgba(148, 163, 184, 0.16);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--zhan-owes.analysis-week-cell--today {
+      background: rgba(16, 185, 129, 0.14);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--hu-owes.analysis-week-cell--today {
+      background: rgba(239, 68, 68, 0.12);
+    }
+    html.dark button.analysis-week-cell.analysis-period-dir--neutral.analysis-week-cell--today {
+      background: rgba(148, 163, 184, 0.14);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--zhan-owes.analysis-cal-cell--today,
+    html.dark button.home-cal-cell.analysis-period-dir--zhan-owes.home-cal-cell--today {
+      background: rgba(16, 185, 129, 0.14);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--hu-owes.analysis-cal-cell--today,
+    html.dark button.home-cal-cell.analysis-period-dir--hu-owes.home-cal-cell--today {
+      background: rgba(239, 68, 68, 0.12);
+    }
+    html.dark button.analysis-cal-cell.analysis-period-dir--neutral.analysis-cal-cell--today,
+    html.dark button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--today {
+      background: rgba(148, 163, 184, 0.14);
     }
     html.dark .payer-row-remove:hover {
       background: rgba(255,255,255,.06);
@@ -3733,6 +4477,220 @@
     .payer-stats-amt.net-neg { color: var(--danger); }
     .payer-stats-empty { font-size: 13px; color: var(--text-muted); padding: 4px 0; }
 
+    /* 出遊歷史：行程起點～最後一筆的「週式」日期列（每列 7 天，左右切換） */
+    .trip-history-nav-wrap {
+      margin-bottom: 0;
+      padding-top: 0;
+      padding-bottom: 4px;
+      padding-left: calc(16px + env(safe-area-inset-left, 0px));
+      padding-right: calc(16px + env(safe-area-inset-right, 0px));
+    }
+    .trip-history-strip-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+    .trip-history-week-nav.analysis-nav-btn {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+    }
+    .trip-history-week-nav.analysis-nav-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+    .trip-history-nav-meta {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      flex: 1;
+      min-width: 0;
+      line-height: 1.15;
+    }
+    .trip-history-strip {
+      flex: 1 1 0%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-start;
+      align-items: stretch;
+      min-width: 0;
+    }
+    button.trip-history-cell {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      padding: 3px 4px 3px;
+      min-height: 0;
+      border-radius: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid transparent;
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+      box-sizing: border-box;
+      flex: 0 0 calc((100% - 36px) / 7);
+      max-width: calc((100% - 36px) / 7);
+      min-width: 0;
+    }
+    button.trip-history-cell:hover {
+      background: #f1f5f9;
+    }
+    button.trip-history-cell.trip-history-cell--selected:hover {
+      background: #94a3b8;
+    }
+    /* 須含 button，否則特異性低於 button.trip-history-cell，選取灰底永遠被蓋掉 */
+    button.trip-history-cell.trip-history-cell--selected {
+      background: #cbd5e1;
+      border-color: transparent;
+      color: #0f172a;
+      box-shadow: none;
+    }
+    button.trip-history-cell.trip-history-cell--selected .trip-history-wd {
+      color: #334155;
+      font-weight: 600;
+    }
+    button.trip-history-cell.trip-history-cell--selected .trip-history-daynum {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    button.trip-history-cell.trip-history-cell--selected.trip-history-cell--today {
+      background: #94a3b8;
+      box-shadow: none;
+    }
+    .trip-history-wd {
+      display: block;
+      font-size: 9px;
+      font-weight: 600;
+      margin-bottom: 0;
+      line-height: 1.1;
+    }
+    .trip-history-daynum {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    button.trip-history-cell.trip-history-cell--today:not(.trip-history-cell--selected) {
+      border-color: rgba(71, 85, 105, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.35);
+    }
+    .trip-history-cell--empty {
+      min-height: 1px;
+      background: transparent;
+      border: none;
+      pointer-events: none;
+    }
+    .trip-history-list {
+      margin-top: 6px;
+    }
+    .analysis-nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    html.dark button.trip-history-cell {
+      background: #1e293b;
+    }
+    html.dark button.trip-history-cell:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark button.trip-history-cell.trip-history-cell--today:not(.trip-history-cell--selected) {
+      border-color: rgba(148, 163, 184, 0.45);
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45);
+    }
+    html.dark button.trip-history-cell.trip-history-cell--selected {
+      background: #64748b;
+      border-color: transparent;
+      color: #f8fafc;
+      box-shadow: none;
+    }
+    html.dark button.trip-history-cell.trip-history-cell--selected .trip-history-wd {
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    html.dark button.trip-history-cell.trip-history-cell--selected .trip-history-daynum {
+      color: #f8fafc;
+      font-weight: 700;
+    }
+    html.dark button.trip-history-cell.trip-history-cell--selected:hover {
+      background: #475569;
+    }
+    html.dark button.trip-history-cell.trip-history-cell--selected.trip-history-cell--today {
+      background: #475569;
+      box-shadow: none;
+    }
+
+    /* 出遊詳情卡片內：雙 ID 拉高特異性，避免被其他規則蓋掉；選取用較深實心灰才與未選區隔 */
+    #page-trip-detail #detail-expenses .trip-history-list {
+      margin-top: 0;
+      padding-top: 2px;
+      border-top: 1px solid rgba(15, 23, 42, 0.14);
+    }
+    html.dark #page-trip-detail #detail-expenses .trip-history-list {
+      border-top-color: rgba(255, 255, 255, 0.16);
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell {
+      background: var(--bg-secondary);
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell:hover {
+      background: #f1f5f9;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected {
+      background: #64748b;
+      border-color: transparent;
+      color: #f8fafc;
+      box-shadow: none;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected .trip-history-wd {
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected .trip-history-daynum {
+      color: #f8fafc;
+      font-weight: 700;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected:hover {
+      background: #475569;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected.trip-history-cell--today {
+      background: #475569;
+    }
+    #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--today:not(.trip-history-cell--selected) {
+      border-color: rgba(71, 85, 105, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.35);
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell {
+      background: #1e293b;
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--today:not(.trip-history-cell--selected) {
+      border-color: rgba(148, 163, 184, 0.45);
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45);
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected {
+      background: #64748b;
+      color: #f8fafc;
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected:hover {
+      background: #475569;
+    }
+    html.dark #page-trip-detail #detail-expenses button.trip-history-cell.trip-history-cell--selected.trip-history-cell--today {
+      background: #475569;
+    }
+
     .trip-day-group { margin-bottom: 10px; }
     .trip-day-group:last-child { margin-bottom: 0; }
     .trip-day-group:not(:first-child) {
@@ -3744,6 +4702,20 @@
       font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em;
       padding: 4px 16px 5px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
     }
+    #page-trip-detail #detail-expenses .trip-day-group {
+      margin-bottom: 8px;
+    }
+    #page-trip-detail #detail-expenses .trip-day-group:not(:first-child) {
+      padding-top: 6px;
+    }
+    #page-trip-detail #detail-expenses .trip-day-label {
+      padding: 1px 16px 6px;
+      margin-bottom: 0;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+    }
+    html.dark #page-trip-detail #detail-expenses .trip-day-label {
+      border-bottom-color: rgba(255, 255, 255, 0.2);
+    }
     .trip-day-label span:first-child { text-transform: uppercase; letter-spacing: .06em; }
     .trip-day-sub {
       font-size: 12px; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0;
@@ -3751,6 +4723,12 @@
     .trip-day-items .record-item:first-child { border-radius: var(--radius) var(--radius) 0 0; }
     .trip-day-items .record-item:last-child { border-radius: 0 0 var(--radius) var(--radius); }
     .trip-day-items .record-item:only-child { border-radius: var(--radius); }
+    .trip-day-items .record-item.is-settlement,
+    .trip-day-items .record-item.is-settlement:first-child,
+    .trip-day-items .record-item.is-settlement:last-child,
+    .trip-day-items .record-item.is-settlement:only-child {
+      border-radius: 0;
+    }
 
     .trip-closed-bar {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
