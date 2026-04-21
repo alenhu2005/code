@@ -64,6 +64,19 @@ export function getDailyRecords() {
  * @param {import('./model.js').LedgerRow} tripRow
  * @param {import('./model.js').LedgerRow[]} allRows
  */
+/** 試算表事件列是否曾寫入「開啟人民幣模式」（與舊版 localStorage 併用見 trip-cny-rate） */
+export function tripCnyModeEnabledInRows(tripId, allRows) {
+  const id = String(tripId || '').trim();
+  if (!id || !Array.isArray(allRows)) return false;
+  return allRows.some(
+    r =>
+      r &&
+      r.type === 'trip' &&
+      r.action === 'enableCnyMode' &&
+      String(r.id || '').trim() === id,
+  );
+}
+
 export function buildTripFromRows(tripRow, allRows) {
   const renames = buildRenameMap();
   let members = parseArr(tripRow.members);
@@ -82,7 +95,8 @@ export function buildTripFromRows(tripRow, allRows) {
   );
   const lastCloseEvent = closeEvents[closeEvents.length - 1];
   const _closed = lastCloseEvent ? lastCloseEvent.action === 'close' : false;
-  return { id: tripRow.id, name: tripRow.name, members, createdAt: tripRow.createdAt, _closed };
+  const cnyMode = tripCnyModeEnabledInRows(tripRow.id, allRows);
+  return { id: tripRow.id, name: tripRow.name, members, createdAt: tripRow.createdAt, _closed, cnyMode };
 }
 
 export function getTripsFromRows(allRows) {

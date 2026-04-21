@@ -4,6 +4,7 @@ import {
   buildTripFromRows,
   getTripExpensesFromRows,
   getTripExpenseAmountRevisionTrail,
+  tripCnyModeEnabledInRows,
   getTripPaletteColorId,
   pickRandomTripColorId,
   getHiddenMemberStyleKey,
@@ -55,6 +56,19 @@ describe('buildTripFromRows', () => {
     ];
     const t = buildTripFromRows(tripRow, allRows);
     expect(t.members).toEqual(['胡', '阿明']);
+  });
+
+  it('cnyMode 在有 enableCnyMode 事件列時為 true', () => {
+    const tripRow = { type: 'trip', id: 't-cny', action: 'add', name: '離島', members: '[]', createdAt: '2024-01-01' };
+    const allRows = [tripRow, { type: 'trip', action: 'enableCnyMode', id: 't-cny' }];
+    const t = buildTripFromRows(tripRow, allRows);
+    expect(t.cnyMode).toBe(true);
+    expect(tripCnyModeEnabledInRows('t-cny', allRows)).toBe(true);
+  });
+
+  it('無 enableCnyMode 時 cnyMode 為 false', () => {
+    const tripRow = { type: 'trip', id: 't-nc', action: 'add', name: '北', members: '[]', createdAt: '2024-01-01' };
+    expect(buildTripFromRows(tripRow, [tripRow]).cnyMode).toBe(false);
   });
 });
 

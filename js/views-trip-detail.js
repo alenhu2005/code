@@ -30,6 +30,7 @@ import {
   cnyAuxAmountFromNtd,
 } from './trip-cny-rate.js';
 import { showConfirm } from './dialog.js';
+import { formatPostError } from './api.js';
 
 let tripSettleAnimGen = 0;
 
@@ -1154,8 +1155,12 @@ function bindTripDetailNameCnyModeLongPress(nameEl, trip) {
         '此行程將永久顯示「人民幣／參考匯率」欄位，並與新台幣互相換算。開啟後無法關閉。',
       );
       if (!ok) return;
-      enableTripCnyModePermanent(trip.id);
-      toast('已開啟人民幣模式');
+      try {
+        const pr = await enableTripCnyModePermanent(trip.id);
+        toast(pr?.status === 'queued' ? '已開啟人民幣模式（連上網路後會寫入試算表）' : '已開啟人民幣模式');
+      } catch (err) {
+        toast(formatPostError(err));
+      }
       renderTripDetail();
     })();
   };

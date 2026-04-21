@@ -175,6 +175,8 @@ function doPost(e) {
       headers.push('category');
     }
 
+    // 行程列（type=trip）可含 action=add／close／reopen／setColor／enableCnyMode 等；皆 append 至「出遊」表。
+
     if (data.action === 'add' && (data.type === 'daily' || data.type === 'tripExpense') && data.item) {
       var catIn = data.category != null ? String(data.category).trim() : '';
       if (!catIn) {

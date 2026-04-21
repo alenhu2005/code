@@ -111,6 +111,10 @@ function humanSummaryForRow(r, tripNames, opts = {}) {
     return `重新開啟行程「${tripName(tripNames, r.id)}」`;
   }
 
+  if (r.type === 'trip' && r.action === 'enableCnyMode') {
+    return `行程「${tripName(tripNames, r.id)}」開啟人民幣模式`;
+  }
+
   if (r.type === 'tripMember' && r.action === 'add') {
     return `「${tname}」加入成員「${r.memberName}」`;
   }

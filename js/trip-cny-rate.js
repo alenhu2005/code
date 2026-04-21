@@ -2,6 +2,8 @@
 
 import { appState } from './state.js';
 import { parseMoneyLike } from './actions/shared.js';
+import { tripCnyModeEnabledInRows } from './data.js';
+import { postRow } from './api.js';
 
 /** 舊版手動匯率備援（仍寫入以便離線） */
 export const TRIP_CNY_TWD_LS_KEY = 'ledger_trip_cny_to_twd_v1';
@@ -27,20 +29,58 @@ function readCnyModeTripIds() {
   }
 }
 
-export function isTripCnyModeEnabled(tripId) {
-  if (!tripId) return false;
-  return readCnyModeTripIds().includes(tripId);
-}
-
-export function enableTripCnyModePermanent(tripId) {
-  if (!tripId) return;
+function persistCnyModeTripIdToLocal(tripId) {
+  const id = String(tripId || '').trim();
+  if (!id) return;
   const ids = new Set(readCnyModeTripIds());
-  if (ids.has(tripId)) return;
-  ids.add(tripId);
+  if (ids.has(id)) return;
+  ids.add(id);
   try {
     localStorage.setItem(TRIP_CNY_MODE_TRIPS_KEY, JSON.stringify([...ids]));
   } catch {
     /* ignore */
+  }
+}
+
+function removeCnyModeTripIdFromLocal(tripId) {
+  const id = String(tripId || '').trim();
+  if (!id) return;
+  const ids = readCnyModeTripIds().filter(x => String(x) !== id);
+  try {
+    localStorage.setItem(TRIP_CNY_MODE_TRIPS_KEY, JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 試算表有 enableCnyMode 列，或舊版僅寫入 localStorage 者，皆視為已開啟 */
+export function isTripCnyModeEnabled(tripId, allRows = appState.allRows) {
+  if (!tripId) return false;
+  if (tripCnyModeEnabledInRows(tripId, allRows)) return true;
+  return readCnyModeTripIds().includes(tripId);
+}
+
+/**
+ * 永久開啟人民幣模式：寫入試算表一列（type=trip, action=enableCnyMode），並寫入 localStorage 備援。
+ * @returns {Promise<{ status: string }|void>}
+ */
+export async function enableTripCnyModePermanent(tripId) {
+  const id = String(tripId || '').trim();
+  if (!id) return;
+  if (tripCnyModeEnabledInRows(id, appState.allRows)) {
+    persistCnyModeTripIdToLocal(id);
+    return;
+  }
+  persistCnyModeTripIdToLocal(id);
+  const row = { type: 'trip', action: 'enableCnyMode', id };
+  appState.allRows.push(row);
+  try {
+    return await postRow(row, { syncTarget: row });
+  } catch (e) {
+    const i = appState.allRows.lastIndexOf(row);
+    if (i >= 0) appState.allRows.splice(i, 1);
+    removeCnyModeTripIdFromLocal(id);
+    throw e;
   }
 }
 

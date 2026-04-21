@@ -33,7 +33,7 @@ import { normalizeDate } from './time.js';
  * @typedef {Object} TripLedgerRow
  * @property {'trip'} type
  * @property {string} [id]
- * @property {'add'|'delete'|'close'|'reopen'} [action]
+ * @property {'add'|'delete'|'close'|'reopen'|'setColor'|'enableCnyMode'} [action]
  * @property {string} [name]
  * @property {string} [item]
  * @property {string} [members] — JSON 字串或陣列字串化
@@ -113,9 +113,13 @@ export function normalizeRow(r) {
     r.date = normalizeDate(r.date);
     r.amount = r.amount ?? 0;
   } else if (r.type === 'trip') {
-    r.name = r.name ?? (r.item || '');
-    r.createdAt = r.createdAt ?? (r.date || '');
-    r.members = r.members ?? (r.splitMode || '[]');
+    if (r.action === 'enableCnyMode') {
+      r.id = String(r.id || '').trim();
+    } else {
+      r.name = r.name ?? (r.item || '');
+      r.createdAt = r.createdAt ?? (r.date || '');
+      r.members = r.members ?? (r.splitMode || '[]');
+    }
   } else if (r.type === 'tripMember') {
     r.tripId = r.tripId ?? (r.id || '');
     r.memberName = r.memberName ?? (r.date || '');
