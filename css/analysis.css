@@ -392,11 +392,9 @@ button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--today {
   background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
+  overflow: hidden;
 }
 .trip-gamble-pl {
   margin-bottom: 12px;
@@ -415,13 +413,13 @@ button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--today {
 }
 .analysis-gamble-pl-grid {
   display: grid;
-  /* 列用 subgrid 對齊父欄寬；min-width 極窄時由卡片橫向捲動，避免欄位被擠壞 */
-  grid-template-columns: minmax(5.5em, 1.25fr) minmax(5.25em, max-content) minmax(5.25em, max-content) minmax(5.25em, max-content);
-  column-gap: 12px;
+  grid-template-columns: minmax(4.5em, 1.1fr) repeat(3, minmax(4.6em, 1fr));
+  column-gap: 8px;
   row-gap: 8px;
   align-items: stretch;
-  min-width: 260px;
-  font-size: 13px;
+  min-width: 0;
+  width: 100%;
+  font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -467,6 +465,7 @@ button.home-cal-cell.analysis-period-dir--neutral.home-cal-cell--today {
   text-align: right;
   white-space: nowrap;
   color: var(--text);
+  min-width: 0;
 }
 .analysis-gamble-pl-cell--net {
   font-weight: 700;
