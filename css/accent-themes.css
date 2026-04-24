@@ -21,13 +21,14 @@ html.dark[data-accent='teal'] {
 }
 
 html[data-accent='violet'] {
-  --primary: #7c3aed;
-  --primary-light: #f5f3ff;
-  --primary-dark: #6d28d9;
+  /* Pink theme (kept id as 'violet' for backward compatibility) */
+  --primary: #f472b6;
+  --primary-light: #fdf2f8;
+  --primary-dark: #ec4899;
 }
 html.dark[data-accent='violet'] {
-  --primary-light: rgba(124, 58, 237, 0.18);
-  --primary-dark: #c4b5fd;
+  --primary-light: rgba(244, 114, 182, 0.18);
+  --primary-dark: #fbcfe8;
 }
 
 html[data-accent='rose'] {

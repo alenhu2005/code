@@ -13,7 +13,7 @@ export const ACCENT_IDS = /** @type {const} */ ([
 export const ACCENT_LABELS = /** @type {Record<AccentId, string>} */ ({
   blue: '標準藍',
   teal: '青綠',
-  violet: '紫羅蘭',
+  violet: '粉色',
   rose: '玫瑰紅',
   amber: '琥珀',
   emerald: '翠綠',
@@ -23,7 +23,7 @@ export const ACCENT_LABELS = /** @type {Record<AccentId, string>} */ ({
 const ACCENT_META_LIGHT = /** @type {Record<AccentId, string>} */ ({
   blue: '#3b82f6',
   teal: '#0d9488',
-  violet: '#7c3aed',
+  violet: '#f472b6',
   rose: '#e11d48',
   amber: '#d97706',
   emerald: '#059669',
